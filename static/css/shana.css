@@ -1,0 +1,273 @@
+
+.shana-hero {
+    padding: 3rem 0 1.5rem;
+    text-align: center;
+}
+
+.shana-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.78rem;
+    color: #5c6fb8;
+    margin-bottom: 0.8rem;
+    font-weight: 700;
+}
+
+.shana-hero h1 {
+    font-size: clamp(2.5rem, 5vw, 4.4rem);
+    line-height: 1.05;
+    color: #1c254a;
+    margin-bottom: 1rem;
+}
+
+.shana-subtitle {
+    max-width: 760px;
+    margin: 0 auto;
+    color: #5f6c85;
+    font-size: 1.15rem;
+}
+
+.shana-section-nav {
+    position: sticky;
+    top: 76px;
+    z-index: 90;
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0.9rem 1rem;
+    margin: 0 0 2rem;
+    background: rgba(245, 245, 245, 0.92);
+    border: 1px solid rgba(28, 37, 74, 0.08);
+    border-radius: 18px;
+    backdrop-filter: blur(10px);
+}
+
+.shana-section-nav a {
+    text-decoration: none;
+    color: #44506a;
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 0.6rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(28, 37, 74, 0.1);
+    background: white;
+}
+
+.shana-section-nav a.active,
+.shana-section-nav a:hover {
+    background: #1c254a;
+    color: white;
+}
+
+.shana-page {
+    max-width: 1000px;
+    margin: 0 auto 3rem;
+}
+
+.shana-section,
+.shana-conclusion {
+    scroll-margin-top: 160px;
+    margin-bottom: 4rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+    padding: 2rem;
+}
+
+.shana-conclusion {
+    background: linear-gradient(135deg, #1c254a 0%, #41529b 100%);
+    color: white;
+}
+
+.shana-conclusion p { color: rgba(255,255,255,0.88); }
+
+.shana-section-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid rgba(92, 111, 184, 0.14);
+}
+
+.shana-section-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #d35400;
+}
+
+.shana-section h2,
+.shana-conclusion h2 {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    color: #1c254a;
+}
+
+.shana-conclusion h2 { color: white; }
+
+.shana-section p {
+    margin-bottom: 1rem;
+    color: #4d5870;
+    font-size: 1.05rem;
+}
+
+.shana-stat-grid,
+.shana-hypothesis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.shana-stat-card,
+.shana-hypothesis,
+.shana-chart-card,
+.shana-highlight {
+    border-radius: 18px;
+    background: #f8faff;
+    border: 1px solid rgba(28, 37, 74, 0.08);
+}
+
+.shana-stat-card {
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.shana-stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1c254a;
+}
+
+.shana-stat-label {
+    color: #667085;
+    font-size: 0.9rem;
+}
+
+.shana-chart-card {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.shana-chart-card h3 {
+    margin-bottom: 1rem;
+    color: #1c254a;
+}
+
+.shana-highlight {
+    padding: 1.4rem;
+    border-left: 5px solid #f39c12;
+}
+
+.shana-highlight h3 {
+    margin-bottom: 0.6rem;
+    color: #1c254a;
+}
+
+.shana-insights {
+    margin: 1rem 0 1.5rem 1.2rem;
+    color: #4d5870;
+}
+
+.shana-insights li { margin-bottom: 0.65rem; }
+
+.shana-hypothesis {
+    padding: 1.4rem;
+}
+
+.shana-hypothesis h3 { margin-bottom: 0.7rem; color: #1c254a; }
+.shana-hypothesis p { margin-bottom: 0; }
+.shana-hypothesis-red { background: linear-gradient(135deg, #fff0f0 0%, #ffe0e0 100%); }
+.shana-hypothesis-gold { background: linear-gradient(135deg, #fff9e8 0%, #ffeec8 100%); }
+.shana-hypothesis-teal { background: linear-gradient(135deg, #ebfbf7 0%, #d4f4ea 100%); }
+
+.shana-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1rem 0 1.5rem;
+}
+
+.shana-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #4d5870;
+    font-size: 0.95rem;
+}
+
+.shana-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 8px;
+    border: 2px solid rgba(28, 37, 74, 0.12);
+}
+
+.shana-swatch-blue { background: linear-gradient(135deg, #d9ecff 0%, #9fc5f8 100%); border-color: #2f6fb6; }
+.shana-swatch-orange { background: linear-gradient(135deg, #ffe8cc 0%, #ffd09b 100%); border-color: #d17a22; }
+.shana-swatch-green { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); }
+.shana-swatch-red { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); }
+
+.shana-participant-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.75rem;
+}
+
+.shana-pill {
+    padding: 0.75rem 0.9rem;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.86rem;
+    border: 2px solid transparent;
+    background: white;
+}
+
+.shana-pill.used-blank-success { background: linear-gradient(135deg, #d9ecff 0%, #9fc5f8 100%); border-color: #2f6fb6; color: #163a63; }
+.shana-pill.used-blank-failed { background: linear-gradient(135deg, #ffe8cc 0%, #ffd09b 100%); border-color: #d17a22; color: #7a3e00; }
+.shana-pill.success-only { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); }
+.shana-pill.failed-only { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); }
+
+.shana-viewer-shell {
+    background: #ffffff;
+    border: 1px solid rgba(28, 37, 74, 0.08);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.shana-viewer-shell iframe {
+    display: block;
+    width: 100%;
+    min-height: 520px;
+    border: 0;
+    border-radius: 12px;
+    background: #faf7f0;
+}
+
+@media (max-width: 900px) {
+    .shana-section-nav {
+        justify-content: flex-start;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 700px) {
+    .shana-section,
+    .shana-conclusion {
+        padding: 1.25rem;
+        border-radius: 16px;
+    }
+
+    .shana-section-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .shana-viewer-shell iframe {
+        min-height: 480px;
+    }
+}

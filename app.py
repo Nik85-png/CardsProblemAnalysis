@@ -987,6 +987,12 @@ def patterns():
                            failure_count=len(failure_df))
 
 
+@app.route('/shana-project')
+def shana_project():
+    """Shana's one-page research story with embedded viewer."""
+    return render_template('shana.html')
+
+
 # ============================================================================
 # API ENDPOINTS
 # ============================================================================
