@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/behavioral_patterns.css') }}">
+{% endblock %}
+
+{% block title %}Behavioral Patterns Analysis - Cards Problem Study{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>Behavioral Patterns Analysis (Grid Patterns)</h1>
+    </div>
+    <!-- GRID VIEWER -->
+    <div id="pg-gridview" class="pg on">
+    <div class="ph"><h2>Grid Viewer</h2><p>Each condition shows ONLY its own exclusive participants · no overlap</p></div>
+    <div class="tabs" id="gv-tabs">
+        <div class="tab on" onclick="gvTab(this,'KQJB')">KQJB — 58 participants</div>
+        <div class="tab" onclick="gvTab(this,'KQJ')">KQJ — 53 participants</div>
+        <div class="tab" onclick="gvTab(this,'KQB')">KQB — 61 participants</div>
+        <div class="tab" onclick="gvTab(this,'KQ')">KQ — 55 participants</div>
+    </div>
+    <div class="card">
+        <div class="ch"><div class="ct" id="gv-cond-l">KQJB — 58 exclusive participants</div></div>
+        <div class="cr">
+        <div class="cg"><div class="cl">Outcome filter</div><select id="gv-filt" onchange="gvPop()"><option value="all">All participants</option><option value="win">Successful only</option><option value="fail">Unsuccessful only</option></select></div>
+        <div class="cg"><div class="cl">Participant</div><select id="gv-pid" onchange="gvLoadT()"></select></div>
+        <div class="cg"><div class="cl">Trial</div><select id="gv-trial" onchange="gvRender()"></select></div>
+        </div>
+        <div class="gv-wrap">
+        <div>
+            <div class="gv-box"><svg id="gv-svg" width="256" height="256" viewBox="0 0 256 256" style="display:block"></svg></div>
+            <div class="gv-out fail" id="gv-lbl">—</div>
+        </div>
+        <div>
+            <div class="cl" style="margin-bottom:7px">All trials · click to jump</div>
+            <div class="tstrip" id="gv-strip"></div>
+            <div class="note" style="margin-top:8px">Gold outline = successful trial. Blank cards shown in white. Mini-grids show final card positions per trial.</div>
+        </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="ch"><div class="ct" id="gv-plist-l">Participant list — KQJB</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--s2);border:1px solid rgba(46,204,138,.15);border-radius:8px;padding:12px">
+            <div style="font-family:var(--fm);font-size:9px;color:var(--grn);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">✓ Successful — click to view</div>
+            <div class="pid-wrap" id="gv-succ"></div>
+        </div>
+        <div style="background:var(--s2);border:1px solid rgba(255,107,107,.15);border-radius:8px;padding:12px">
+            <div style="font-family:var(--fm);font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">✗ Unsuccessful — click to view</div>
+            <div class="pid-wrap" id="gv-fail"></div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- GRID COMPARISON — THE KEY PAGE -->
+    <div id="pg-gridcompare" class="pg on">
+    <div class="ph"><h2>Grid Comparison</h2><p>Left = unsuccessful participant trials · Right = successful participant trials up to first solution · matching your Colab analysis</p></div>
+    <div class="tabs" id="gc-tabs">
+        <div class="tab on" onclick="gcTab(this,'KQJB')">KQJB</div>
+        <div class="tab" onclick="gcTab(this,'KQJ')">KQJ</div>
+        <div class="tab" onclick="gcTab(this,'KQB')">KQB</div>
+        <div class="tab" onclick="gcTab(this,'KQ')">KQ</div>
+    </div>
+    <div class="card" style="margin-bottom:13px">
+        <div class="ch">
+        <div class="ct" id="gc-info">Comparing pair 1 of available pairs — KQJB</div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="cmp-nav-btn" id="gc-prev" onclick="gcNav(-1)">← Prev pair</button>
+            <span class="cmp-pair-info" id="gc-pair-num">1 / N</span>
+            <button class="cmp-nav-btn" id="gc-next" onclick="gcNav(1)">Next pair →</button>
+        </div>
+        </div>
+        <div class="cmp-headers">
+        <div class="cmp-hdr fail" id="gc-fail-hdr">✗ Unsuccessful Participant —</div>
+        <div class="cmp-hdr win" id="gc-win-hdr">✓ Successful Participant — trials up to first solution</div>
+        </div>
+        <div class="cmp-pair-row" id="gc-pair-display"></div>
+    </div>
+    <div class="card">
+        <div class="ch"><div class="ct">What the comparison reveals</div></div>
+        <div class="g2">
+        <div>
+            <div style="font-family:var(--fm);font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Failed trial patterns</div>
+            <div style="font-family:var(--fm);font-size:11px;color:var(--m1);line-height:2">
+            · Cards scattered across full 8×8 board<br>
+            · No coherent row or column structure<br>
+            · Off-grid placements common<br>
+            · Same cards repositioned repeatedly<br>
+            · No convergence to a sub-grid region
+            </div>
+        </div>
+        <div>
+            <div style="font-family:var(--fm);font-size:9px;color:var(--grn);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Successful trial patterns</div>
+            <div style="font-family:var(--fm);font-size:11px;color:var(--m1);line-height:2">
+            · Cards clustered in top-left sub-grid<br>
+            · Clear row and column structure visible<br>
+            · Each card type exactly once per row/col<br>
+            · Fewer total moves — decisive placement<br>
+            · Gold border = completed valid solution
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script src="{{ url_for('static', filename='js/behavioral_patterns.js') }}"></script>
+{% endblock %}

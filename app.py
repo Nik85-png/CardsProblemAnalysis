@@ -1517,6 +1517,11 @@ def api_blank_patterns_doc_summary():
 def powerbi():
     return render_template('powerbi.html')
 
+###############################################################################
+##########Behavioral patterns-Grid Analysis###################################
+@app.route('/behavioral_patterns')
+def behavioral_patterns():
+    return render_template('behavioral_patterns.html')
 
 # ============================================================================
 # APPLICATION STARTUP - Load data when module is imported
