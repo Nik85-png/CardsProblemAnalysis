@@ -1,4 +1,4 @@
-*{box-sizing:border-box;margin:0;padding:0}
+
 :root{
   --bg:#f0f4ff;
   --s1:#ffffff;
@@ -25,15 +25,8 @@
   --ff:'Plus Jakarta Sans',sans-serif;
   --fm:'IBM Plex Mono',monospace;
 }
-html{scroll-behavior:smooth}
+
 body{
-  font-family:var(--ff);font-size:14px;line-height:1.6;color:var(--tx);min-height:100vh;
-  background:
-    radial-gradient(ellipse 120% 70% at -5% -10%, rgba(108,147,255,0.22) 0%,transparent 55%),
-    radial-gradient(ellipse 90% 60% at 105% 110%, rgba(30,200,130,0.18) 0%,transparent 55%),
-    radial-gradient(ellipse 70% 50% at 50% 40%, rgba(245,166,35,0.09) 0%,transparent 60%),
-    radial-gradient(ellipse 60% 80% at 80% 0%, rgba(124,92,191,0.10) 0%,transparent 55%),
-    linear-gradient(145deg,#dce8ff 0%,#e8f5ff 30%,#edfff6 60%,#fff8e6 100%);
   background-attachment:fixed;
 }
 
@@ -243,10 +236,10 @@ select:focus{border-color:#2272f5;box-shadow:0 0 0 3px rgba(34,114,245,0.12)}
 .cc-chip{display:flex;align-items:center;gap:5px;font-family:var(--fm);font-size:10px;padding:3px 9px;border-radius:6px;background:#fff;border:1px solid var(--b1);box-shadow:0 1px 3px rgba(50,80,200,0.06)}
 .cc-sw{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 
-::-webkit-scrollbar{width:5px;height:5px}
+/* ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--s2)}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--m2)}
+::-webkit-scrollbar-thumb:hover{background:var(--m2)} */
 
 @keyframes fup{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
 .pg.on>*{animation:fup .2s ease both}
