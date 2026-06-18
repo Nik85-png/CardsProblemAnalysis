@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animated Card Viewer - Blank Card Paradox</title>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --cream:#FAF7F0; --navy:#1a1a2e; --orange:#d35400;
+      --teal:#16a085; --gold:#f39c12; --red:#e74c3c;
+      --serif:'Crimson Pro',serif; --mono:'Space Mono',monospace;
+    }
+    body { font-family:var(--serif); background:#0d0d1a; color:var(--cream); overflow-x:hidden; }
+    body.embed-mode { background:var(--cream); color:var(--navy); }
+    body.embed-mode nav { display:none; }
+    body.embed-mode .viewer-wrap { padding:6px 6px 10px; max-width:860px; }
+    body.embed-mode .viewer-header { margin-bottom:10px; }
+    body.embed-mode .viewer-header h1,
+    body.embed-mode .viewer-header p,
+    body.embed-mode .grid-title { color:var(--navy); opacity:1; }
+    body.embed-mode .viewer-header .etag,
+    body.embed-mode .leg-item,
+    body.embed-mode .step-counter { color:rgba(26,26,46,.66); }
+    body.embed-mode .controls-panel,
+    body.embed-mode .playback,
+    body.embed-mode .card-grid {
+      background:#fff;
+      border:1px solid rgba(26,26,46,.10);
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
+    }
+    body.embed-mode .viewer-header .etag {
+      margin-bottom:4px;
+      font-size:.58rem;
+    }
+    body.embed-mode .viewer-header h1 {
+      font-size:clamp(.96rem,1.55vw,1.18rem);
+      margin-bottom:2px;
+    }
+    body.embed-mode .viewer-header p {
+      display:none;
+    }
+    body.embed-mode .controls-panel {
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+      padding:10px 12px;
+      margin-bottom:8px;
+      border-radius:12px;
+    }
+    body.embed-mode .ctrl-group label {
+      font-size:.56rem;
+      margin-bottom:6px;
+    }
+    body.embed-mode .ctrl-group select,
+    body.embed-mode .ctrl-group input[type=range] {
+      background:#fff;
+      color:var(--navy);
+      border:1px solid rgba(26,26,46,.16);
+      padding:5px 8px;
+      font-size:.6rem;
+    }
+    body.embed-mode .speed-val {
+      font-size:.66rem;
+      margin-top:4px;
+    }
+    body.embed-mode .playback {
+      gap:6px;
+      padding:8px 10px;
+      margin-bottom:8px;
+      border-radius:12px;
+    }
+    body.embed-mode .pb-btn {
+      color:var(--navy);
+      border-color:rgba(26,26,46,.20);
+      background:#fff;
+      width:34px;
+      height:34px;
+      font-size:.82rem;
+    }
+    body.embed-mode .pb-btn.play-btn {
+      color:var(--cream);
+      background:var(--orange);
+      border-color:var(--orange);
+      width:38px;
+      height:38px;
+      font-size:.92rem;
+    }
+    body.embed-mode .step-counter {
+      font-size:.62rem;
+      min-width:72px;
+    }
+    body.embed-mode .progress-wrap {
+      margin-bottom:10px;
+    }
+    body.embed-mode .info-bar {
+      gap:8px;
+      margin-bottom:8px;
+    }
+    body.embed-mode .info-chip {
+      background:#fff;
+      border:1px solid rgba(26,26,46,.10);
+      color:rgba(26,26,46,.72);
+      padding:4px 8px;
+      font-size:.5rem;
+    }
+    body.embed-mode .move-msg {
+      background:rgba(22,160,133,.08);
+      border:1px solid rgba(22,160,133,.20);
+      color:rgba(26,26,46,.82);
+      font-size:.78rem;
+      line-height:1.45;
+      padding:7px 10px;
+      min-height:30px;
+      margin-bottom:8px;
+    }
+    body.embed-mode .grid-title {
+      margin-bottom:6px;
+      font-size:.54rem;
+    }
+    body.embed-mode .card-grid {
+      gap:2px;
+      padding:6px;
+      border-radius:12px;
+      max-width:640px;
+      margin:0 auto;
+    }
+    body.embed-mode .grid-cell {
+      background:rgba(26,26,46,.03);
+      border:1px solid rgba(26,26,46,.08);
+      font-size:clamp(.46rem,.68vw,.62rem);
+      border-radius:4px;
+    }
+    body.embed-mode .legend {
+      display:none;
+    }
+    body.embed-mode .grid-cell.occupied {
+      background:rgba(26,26,46,.06);
+      border-color:rgba(26,26,46,.14);
+    }
+    body.embed-mode .leg-dot[style*='transparent'] {
+      border-color:rgba(26,26,46,.25) !important;
+    }
+
+    nav {
+      position:fixed; top:0; left:0; right:0; z-index:200;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 48px;
+      background:rgba(13,13,26,0.98); backdrop-filter:blur(14px);
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+    .logo { font-family:var(--mono); font-size:0.72rem; color:var(--gold); letter-spacing:.18em; text-transform:uppercase; text-decoration:none; }
+    .nav-links { display:flex; gap:28px; list-style:none; }
+    .nav-links a { font-family:var(--mono); font-size:.68rem; color:rgba(250,247,240,.55); text-decoration:none; letter-spacing:.1em; text-transform:uppercase; transition:color .2s; }
+    .nav-links a:hover { color:var(--gold); }
+
+    .viewer-wrap { max-width:1200px; margin:0 auto; padding:100px 32px 60px; }
+
+    .viewer-header { text-align:center; margin-bottom:48px; }
+    .viewer-header .etag { font-family:var(--mono); font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:14px; }
+    .viewer-header h1 { font-size:clamp(1.8rem,4vw,3rem); font-weight:700; margin-bottom:14px; }
+    .viewer-header p { font-size:1.1rem; opacity:.68; max-width:600px; margin:0 auto; line-height:1.7; }
+
+    /* CONTROLS */
+    .controls-panel {
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:14px; padding:28px 32px; margin-bottom:28px;
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px;
+    }
+    .ctrl-group label { font-family:var(--mono); font-size:.6rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(250,247,240,.5); display:block; margin-bottom:8px; }
+    .ctrl-group select, .ctrl-group input[type=range] {
+      width:100%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+      border-radius:6px; color:var(--cream); font-family:var(--mono); font-size:.75rem;
+      padding:8px 12px; appearance:none; cursor:pointer; outline:none; transition:border-color .2s;
+    }
+    .ctrl-group select:hover, .ctrl-group select:focus { border-color:var(--gold); }
+    .speed-val { font-family:var(--mono); font-size:.75rem; color:var(--gold); text-align:center; margin-top:6px; }
+
+    /* PLAYBACK */
+    .playback {
+      display:flex; align-items:center; justify-content:center; gap:14px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09);
+      border-radius:12px; padding:20px 32px; margin-bottom:28px; flex-wrap:wrap;
+    }
+    .pb-btn {
+      width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(255,255,255,.2);
+      background:transparent; color:var(--cream); font-size:1.1rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all .18s;
+    }
+    .pb-btn:hover { border-color:var(--gold); color:var(--gold); background:rgba(243,156,18,.08); }
+    .pb-btn.play-btn { width:52px; height:52px; background:var(--orange); border-color:var(--orange); font-size:1.3rem; }
+    .pb-btn.play-btn:hover { background:#b84a00; border-color:#b84a00; color:var(--cream); }
+    .step-counter { font-family:var(--mono); font-size:.8rem; color:rgba(250,247,240,.6); min-width:120px; text-align:center; }
+
+    /* PROGRESS BAR */
+    .progress-wrap { height:4px; background:rgba(255,255,255,.1); border-radius:2px; margin-bottom:28px; cursor:pointer; position:relative; }
+    .progress-fill { height:100%; background:var(--gold); border-radius:2px; transition:width .15s; pointer-events:none; }
+
+    /* INFO BAR */
+    .info-bar {
+      display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px;
+    }
+    .info-chip {
+      background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+      border-radius:20px; padding:8px 16px;
+      font-family:var(--mono); font-size:.65rem; letter-spacing:.08em;
+    }
+    .info-chip span { color:var(--gold); }
+    .move-msg { font-size:1rem; line-height:1.6; padding:12px 18px; background:rgba(22,160,133,.12); border:1px solid rgba(22,160,133,.25); border-radius:8px; color:rgba(250,247,240,.85); font-style:italic; margin-bottom:20px; min-height:48px; }
+
+    /* GRID */
+    .grid-section { }
+    .grid-title { font-family:var(--mono); font-size:.65rem; letter-spacing:.14em; text-transform:uppercase; color:rgba(250,247,240,.45); margin-bottom:12px; }
+    .card-grid {
+      display:grid; grid-template-columns:repeat(8,1fr);
+      gap:5px; background:rgba(255,255,255,.03); border-radius:12px;
+      border:1px solid rgba(255,255,255,.08); padding:16px;
+    }
+    .grid-cell {
+      aspect-ratio:3/4; border-radius:6px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:center;
+      font-size:clamp(.7rem,1.4vw,1rem); font-weight:700; font-family:var(--mono);
+      transition:all .35s cubic-bezier(.34,1.56,.64,1);
+      position:relative; overflow:hidden;
+    }
+    .grid-cell.occupied { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.22); }
+    .grid-cell.king { background:linear-gradient(135deg,rgba(211,84,0,.35),rgba(211,84,0,.15)); border-color:var(--orange); color:var(--orange); }
+    .grid-cell.queen { background:linear-gradient(135deg,rgba(22,160,133,.35),rgba(22,160,133,.15)); border-color:var(--teal); color:var(--teal); }
+    .grid-cell.jack { background:linear-gradient(135deg,rgba(243,156,18,.35),rgba(243,156,18,.15)); border-color:var(--gold); color:var(--gold); }
+    .grid-cell.blank {
+      border-color:rgba(155,89,182,.5); color:rgba(155,89,182,.9);
+      background: repeating-linear-gradient(45deg,rgba(155,89,182,.06),rgba(155,89,182,.06) 4px,rgba(155,89,182,.12) 4px,rgba(155,89,182,.12) 8px);
+    }
+    .grid-cell.latest {
+      box-shadow:0 0 0 2px var(--gold), 0 0 16px rgba(243,156,18,.5);
+      border-color:var(--gold); z-index:2;
+      animation:goldPop .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes goldPop { 0%{transform:scale(.7);opacity:.4} 100%{transform:scale(1);opacity:1} }
+
+    /* LEGEND */
+    .legend { display:flex; gap:20px; flex-wrap:wrap; margin-top:18px; }
+    .leg-item { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; color:rgba(250,247,240,.55); }
+    .leg-dot { width:14px; height:14px; border-radius:3px; border:1.5px solid; }
+
+    @media(max-width:700px){
+      nav { padding:14px 18px; }
+      .nav-links { display:none; }
+      .viewer-wrap { padding:80px 16px 40px; }
+      .controls-panel { grid-template-columns:1fr 1fr; }
+      .card-grid { gap:3px; padding:10px; }
+      body.embed-mode .viewer-wrap { padding:6px 3px 8px; }
+      body.embed-mode .controls-panel { grid-template-columns:1fr 1fr; gap:6px; padding:8px; }
+      body.embed-mode .playback { gap:5px; padding:7px 8px; }
+      body.embed-mode .card-grid { gap:2px; padding:5px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo">Back to Blank Card Research</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="research.html">Research Story</a></li>
+  </ul>
+</nav>
+
+<div class="viewer-wrap">
+  <div class="viewer-header">
+    <span class="etag">Animated Card Grid Viewer</span>
+    <h1>Watch Card Movements Step by Step</h1>
+    <p>See how participants placed cards across the 8x8 grid. Gold glow marks the latest move. Striped purple marks a blank card.</p>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-panel">
+    <div class="ctrl-group">
+      <label>Condition Filter</label>
+      <select id="condFilter">
+        <option value="ALL">All Conditions</option>
+        <option value="KQJB">KQJB (Blank + Jack available)</option>
+        <option value="KQB">KQB (Blank, no Jack)</option>
+        <option value="KQJ">KQJ (Jack, no Blank)</option>
+        <option value="KQ">KQ (Basic)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Blank Card Usage</label>
+      <select id="blankFilter">
+        <option value="ALL">All Participants</option>
+        <option value="YES">Used Blank Cards</option>
+        <option value="NO">Did Not Use Blanks</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Outcome Filter</label>
+      <select id="outcomeFilter">
+        <option value="ALL">All Outcomes</option>
+        <option value="YES">Successful Only</option>
+        <option value="NO">Failed Only</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Participant</label>
+      <select id="participantSel"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Trial</label>
+      <select id="trialSel"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Animation Speed - <span id="speedVal">Medium</span></label>
+      <input type="range" id="speedSlider" min="1" max="5" value="3">
+    </div>
+  </div>
+
+  <!-- Playback -->
+  <div class="playback">
+    <button class="pb-btn" id="btnReset" title="Reset">|&lt;</button>
+    <button class="pb-btn" id="btnStepBack" title="Step back">&lt;</button>
+    <button class="pb-btn play-btn" id="btnPlay" title="Play">&gt;</button>
+    <button class="pb-btn" id="btnPause" title="Pause">||</button>
+    <button class="pb-btn" id="btnStepFwd" title="Step forward">&gt;|</button>
+    <span class="step-counter" id="stepCounter">Step 0 / 0</span>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <!-- Info chips -->
+  <div class="info-bar" id="infoBar">
+    <div class="info-chip">Participant: <span id="chipP">-</span></div>
+    <div class="info-chip">Condition: <span id="chipCond">-</span></div>
+    <div class="info-chip">Used Blank: <span id="chipBlank">-</span></div>
+    <div class="info-chip">Outcome: <span id="chipOutcome">-</span></div>
+    <div class="info-chip">Rows / Cols: <span id="chipAcc">-</span></div>
+    <div class="info-chip">Moves / Speed: <span id="chipSpeed">-</span></div>
+  </div>
+  <div class="move-msg" id="moveMsg">Select a participant to begin the animation.</div>
+
+  <!-- Grid -->
+  <div class="grid-section">
+    <div class="grid-title">Animated card placement | gold glow = latest move | striped purple = blank card</div>
+    <div class="card-grid" id="cardGrid"></div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(211,84,0,.4);border-color:var(--orange)"></div>King</div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(22,160,133,.4);border-color:var(--teal)"></div>Queen</div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(243,156,18,.4);border-color:var(--gold)"></div>Jack</div>
+      <div class="leg-item"><div class="leg-dot" style="background:repeating-linear-gradient(45deg,rgba(155,89,182,.2),rgba(155,89,182,.2) 3px,transparent 3px,transparent 6px);border-color:rgba(155,89,182,.6)"></div>Blank Card</div>
+      <div class="leg-item"><div class="leg-dot" style="background:transparent;border-color:rgba(255,255,255,.2)"></div>Empty</div>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+const participants = (window.CARDIEE_DATA?.participants || []).slice().sort((a, b) => a.id - b.id);
+
+let currentParticipant = null;
+let currentTrial = null;
+let currentStep = 0;
+let playInterval = null;
+let isPlaying = false;
+const SPEEDS = [2000, 1200, 700, 400, 180];
+
+const condFilter = document.getElementById('condFilter');
+const blankFilter = document.getElementById('blankFilter');
+const outcomeFilter = document.getElementById('outcomeFilter');
+const participantSel = document.getElementById('participantSel');
+const trialSel = document.getElementById('trialSel');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const btnPlay = document.getElementById('btnPlay');
+const btnPause = document.getElementById('btnPause');
+const btnReset = document.getElementById('btnReset');
+const btnStepFwd = document.getElementById('btnStepFwd');
+const btnStepBack = document.getElementById('btnStepBack');
+const stepCounter = document.getElementById('stepCounter');
+const progressFill = document.getElementById('progressFill');
+const progressWrap = document.getElementById('progressWrap');
+const moveMsg = document.getElementById('moveMsg');
+const cardGrid = document.getElementById('cardGrid');
+const chipP = document.getElementById('chipP');
+const chipCond = document.getElementById('chipCond');
+const chipBlank = document.getElementById('chipBlank');
+const chipOutcome = document.getElementById('chipOutcome');
+const chipAcc = document.getElementById('chipAcc');
+const chipSpeed = document.getElementById('chipSpeed');
+
+const embedMode = new URLSearchParams(window.location.search).get('embed') === '1';
+if (embedMode) {
+  document.body.classList.add('embed-mode');
+}
+
+const cells = [];
+for (let i = 0; i < 64; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'grid-cell';
+  cell.dataset.row = Math.floor(i / 8);
+  cell.dataset.col = i % 8;
+  cardGrid.appendChild(cell);
+  cells.push(cell);
+}
+
+function getCellIdx(row, col) {
+  return row * 8 + col;
+}
+
+function clearGrid() {
+  cells.forEach(cell => {
+    cell.className = 'grid-cell';
+    cell.textContent = '';
+  });
+}
+
+function renderPlacements(placements, latestCell = null) {
+  clearGrid();
+  placements.forEach(move => {
+    if (move.offGrid) return;
+    const cell = cells[getCellIdx(move.row, move.col)];
+    cell.textContent = move.label;
+    cell.className = 'grid-cell occupied';
+    if (move.card === 'king') cell.classList.add('king');
+    else if (move.card === 'queen') cell.classList.add('queen');
+    else if (move.card === 'jack') cell.classList.add('jack');
+    else if (move.card === 'blank') cell.classList.add('blank');
+    if (latestCell && latestCell.row === move.row && latestCell.col === move.col) cell.classList.add('latest');
+  });
+}
+
+function getParticipantTrials() {
+  return currentParticipant?.trials || [];
+}
+
+function getCurrentTrial() {
+  if (currentTrial) return currentTrial;
+  if (!currentParticipant) return null;
+  return {
+    trialNumber: (currentParticipant.finalTrialIndex ?? 0) + 1,
+    trialIndex: currentParticipant.finalTrialIndex ?? 0,
+    endType: 'submit',
+    success: currentParticipant.success,
+    rowCorrect: currentParticipant.rowCorrect,
+    colCorrect: currentParticipant.colCorrect,
+    usedBlank: currentParticipant.usedBlank,
+    moveCount: currentParticipant.moveCount,
+    durationSeconds: currentParticipant.durationSeconds,
+    speedMovesPerSecond: currentParticipant.speedMovesPerSecond,
+    moves: currentParticipant.moves || [],
+    finalLayout: currentParticipant.finalLayout || [],
+  };
+}
+
+function getCurrentMoves() {
+  return getCurrentTrial()?.moves || [];
+}
+
+function getFiltered() {
+  return participants.filter(participant => {
+    if (condFilter.value !== 'ALL' && participant.condition !== condFilter.value) return false;
+    if (blankFilter.value === 'YES' && !participant.usedBlank) return false;
+    if (blankFilter.value === 'NO' && participant.usedBlank) return false;
+    if (outcomeFilter.value === 'YES' && !participant.success) return false;
+    if (outcomeFilter.value === 'NO' && participant.success) return false;
+    return true;
+  });
+}
+
+function populateParticipants() {
+  stopPlay();
+  const filtered = getFiltered();
+  participantSel.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = `Choose participant (${filtered.length})`;
+  participantSel.appendChild(placeholder);
+  filtered.forEach(participant => {
+    const option = document.createElement('option');
+    option.value = participant.id;
+    option.textContent = `P${participant.id} | ${participant.condition}${participant.usedBlank ? ' | blank used' : ''}${participant.success ? ' | success' : ' | failed'}`;
+    participantSel.appendChild(option);
+  });
+  if (filtered.length) loadParticipant(filtered[0].id, filtered);
+  else {
+    currentParticipant = null;
+    clearGrid();
+    moveMsg.textContent = 'No participants match filters.';
+    stepCounter.textContent = 'Step 0 / 0';
+    progressFill.style.width = '0%';
+  }
+}
+
+function populateTrials() {
+  trialSel.innerHTML = '';
+  if (!currentParticipant) return;
+  const trials = getParticipantTrials();
+  if (!trials.length) {
+    const fallbackTrial = getCurrentTrial();
+    const option = document.createElement('option');
+    option.value = fallbackTrial.trialNumber;
+    option.textContent = `Trial ${fallbackTrial.trialNumber} (${fallbackTrial.moveCount || 0} moves)`;
+    trialSel.appendChild(option);
+    return;
+  }
+
+  trials.forEach(trial => {
+    const option = document.createElement('option');
+    option.value = trial.trialNumber;
+    const outcomeLabel = trial.endType === 'reset'
+      ? 'reset'
+      : (trial.success ? 'success' : 'failed');
+    option.textContent = `Trial ${trial.trialNumber} (${trial.moveCount || 0} moves | ${outcomeLabel})`;
+    trialSel.appendChild(option);
+  });
+}
+
+function loadParticipant(pid, filteredList = null) {
+  stopPlay();
+  const sourceList = filteredList || getFiltered();
+  currentParticipant = sourceList.find(participant => participant.id == pid) || participants.find(participant => participant.id == pid);
+  if (!currentParticipant) return;
+  participantSel.value = pid;
+  const trials = getParticipantTrials();
+  currentTrial = trials.find(trial => trial.trialNumber === currentParticipant.defaultTrialNumber) || trials[trials.length - 1] || null;
+  populateTrials();
+  trialSel.value = String(currentTrial?.trialNumber || currentParticipant.defaultTrialNumber || (currentParticipant.finalTrialIndex ?? 0) + 1);
+  currentStep = 0;
+  updateInfoChips();
+  renderCurrentStep();
+}
+
+function renderCurrentStep() {
+  if (!currentParticipant) return;
+  const trial = getCurrentTrial();
+  const moves = getCurrentMoves();
+  const total = moves.length;
+
+  if (!total && trial?.finalLayout?.length) {
+    renderPlacements(trial.finalLayout);
+    stepCounter.textContent = 'Final layout only';
+    progressFill.style.width = '100%';
+    moveMsg.textContent = trial?.endType === 'reset'
+      ? `Trial ${trial.trialNumber} ended with a reset. Only the saved board snapshot is available.`
+      : `Trial ${trial?.trialNumber || '-'} has final board data but no recorded move sequence.`;
+    return;
+  }
+
+  if (!total) {
+    clearGrid();
+    stepCounter.textContent = 'Step 0 / 0';
+    progressFill.style.width = '0%';
+    moveMsg.textContent = trial?.endType === 'reset'
+      ? `Trial ${trial.trialNumber} ended with a reset and does not include a playable move sequence.`
+      : 'No move sequence is available for this trial.';
+    return;
+  }
+
+  const visibleStep = Math.max(0, Math.min(currentStep, total - 1));
+  const latestMove = moves[visibleStep];
+  const reachedEnd = visibleStep >= total - 1;
+
+  if (reachedEnd && trial?.finalLayout?.length) renderPlacements(trial.finalLayout, latestMove);
+  else renderPlacements(moves.slice(0, visibleStep + 1), latestMove);
+
+  stepCounter.textContent = `Step ${visibleStep + 1} / ${total}`;
+  progressFill.style.width = total > 1 ? `${(visibleStep / (total - 1)) * 100}%` : '100%';
+
+  const cardName = { king: 'King', queen: 'Queen', jack: 'Jack', blank: 'Blank card' }[latestMove.card] || latestMove.card;
+  if (latestMove.offGrid) {
+    moveMsg.textContent = `Move ${visibleStep + 1}: ${cardName} moved off the grid.`;
+  } else if (reachedEnd && trial?.finalLayout?.length) {
+    moveMsg.textContent = `Trial ${trial.trialNumber}, move ${visibleStep + 1}: ${cardName} at ${latestMove.cell}. Final board now shows the recorded end state, including blank cards where available.`;
+  } else {
+    moveMsg.textContent = `Trial ${trial?.trialNumber || '-'}, move ${visibleStep + 1}: Placed ${cardName} at row ${latestMove.row + 1}, column ${latestMove.col + 1}.`;
+  }
+}
+
+function updateInfoChips() {
+  if (!currentParticipant) return;
+  const trial = getCurrentTrial();
+  chipP.textContent = `P${currentParticipant.id}`;
+  chipCond.textContent = currentParticipant.condition;
+  chipBlank.textContent = trial?.usedBlank ? 'Yes' : 'No';
+  chipOutcome.textContent = trial?.endType === 'reset' ? 'Reset' : (trial?.success ? 'Success' : 'Failed');
+  chipAcc.textContent = `${trial?.rowCorrect ? 'Row yes' : 'Row no'} / ${trial?.colCorrect ? 'Col yes' : 'Col no'}`;
+  const speed = trial?.speedMovesPerSecond ? `${trial.speedMovesPerSecond} moves/s` : 'n/a';
+  chipSpeed.textContent = `${trial?.moveCount || 0} / ${speed}`;
+}
+
+const speedLabels = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedLabels[speedSlider.value - 1];
+  if (isPlaying) {
+    stopPlay();
+    startPlay();
+  }
+});
+
+function startPlay() {
+  if (!currentParticipant) return;
+  isPlaying = true;
+  const delay = SPEEDS[speedSlider.value - 1];
+  playInterval = setInterval(() => {
+    const moves = getCurrentMoves();
+    if (currentStep >= moves.length - 1) {
+      stopPlay();
+      return;
+    }
+    currentStep++;
+    renderCurrentStep();
+  }, delay);
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearInterval(playInterval);
+  playInterval = null;
+}
+
+btnPlay.addEventListener('click', () => {
+  stopPlay();
+  startPlay();
+});
+btnPause.addEventListener('click', stopPlay);
+btnReset.addEventListener('click', () => {
+  stopPlay();
+  currentStep = 0;
+  renderCurrentStep();
+});
+btnStepFwd.addEventListener('click', () => {
+  stopPlay();
+  const moves = getCurrentMoves();
+  if (currentStep < moves.length - 1) {
+    currentStep++;
+    renderCurrentStep();
+  }
+});
+btnStepBack.addEventListener('click', () => {
+  stopPlay();
+  if (currentStep > 0) {
+    currentStep--;
+    renderCurrentStep();
+  }
+});
+
+progressWrap.addEventListener('click', event => {
+  stopPlay();
+  const moves = getCurrentMoves();
+  if (!moves.length) return;
+  const pct = event.offsetX / progressWrap.offsetWidth;
+  currentStep = Math.round(pct * (moves.length - 1));
+  renderCurrentStep();
+});
+
+condFilter.addEventListener('change', populateParticipants);
+blankFilter.addEventListener('change', populateParticipants);
+outcomeFilter.addEventListener('change', populateParticipants);
+participantSel.addEventListener('change', () => {
+  if (!participantSel.value) return;
+  loadParticipant(participantSel.value);
+});
+trialSel.addEventListener('change', () => {
+  stopPlay();
+  const selectedTrial = Number(trialSel.value);
+  const trials = getParticipantTrials();
+  currentTrial = trials.find(trial => trial.trialNumber === selectedTrial) || currentTrial;
+  currentStep = 0;
+  updateInfoChips();
+  renderCurrentStep();
+});
+
+speedVal.textContent = speedLabels[speedSlider.value - 1];
+populateParticipants();
+
+function sendEmbedHeight() {
+  if (!embedMode || !window.parent || window.parent === window) return;
+  const wrap = document.querySelector('.viewer-wrap');
+  const contentHeight = wrap
+    ? Math.ceil(wrap.getBoundingClientRect().height)
+    : Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight, document.documentElement.offsetHeight);
+  window.parent.postMessage(
+    { type: 'shana-viewer-height', height: contentHeight },
+    window.location.origin
+  );
+}
+
+window.addEventListener('load', sendEmbedHeight);
+window.addEventListener('resize', sendEmbedHeight);
+setInterval(sendEmbedHeight, 900);
+</script>
+</body>
+</html>
