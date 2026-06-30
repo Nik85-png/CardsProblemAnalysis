@@ -116,8 +116,30 @@ function initBackToTopButton() {
     updateVisibility();
 }
 
+function initNavToggle() {
+    const toggle = document.querySelector('.nav-toggle');
+    const menu = document.getElementById('nav-menu');
+    if (!toggle || !menu) {
+        return;
+    }
+
+    toggle.addEventListener('click', () => {
+        const isOpen = menu.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    // Close the menu after following a link (mobile)
+    menu.addEventListener('click', (event) => {
+        if (event.target.closest('a')) {
+            menu.classList.remove('is-open');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
 if (typeof window !== 'undefined') {
     document.addEventListener('DOMContentLoaded', initBackToTopButton);
+    document.addEventListener('DOMContentLoaded', initNavToggle);
 }
 
 // Export functions if using modules (optional)

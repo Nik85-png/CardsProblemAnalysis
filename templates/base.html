@@ -17,11 +17,16 @@
                 <a href="{{ url_for('index') }}" class="brand-link" aria-label="Cards Problem Analysis home">
                     <span class="brand-mark" aria-hidden="true"></span>
                     <span class="brand-copy">
-                        <span class="brand-title">Cards Problem Analysis</span>
+                        <span class="brand-title">Cards Analysis</span>
                     </span>
                 </a>
             </div>
-            <ul class="nav-menu">
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation menu" aria-controls="nav-menu" aria-expanded="false">
+                <span class="nav-toggle__bar" aria-hidden="true"></span>
+                <span class="nav-toggle__bar" aria-hidden="true"></span>
+                <span class="nav-toggle__bar" aria-hidden="true"></span>
+            </button>
+            <ul class="nav-menu" id="nav-menu">
                 <li><a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}class="active" {% endif
                         %}>Home</a></li>
                 <li><a href="{{ url_for('explorer') }}" {% if request.endpoint=='explorer' %}class="active" {% endif
@@ -33,10 +38,10 @@
                         %}>Blank Card Paradox</a></li>
                 <li><a href="{{ url_for('nikunj_analysis') }}" {% if request.endpoint=='nikunj_analysis' %}class="active" {% endif
                         %}>Behavioral Analysis</a></li>
-                <li><a href="{{ url_for('powerbi') }}" {% if request.endpoint=='powerbi' %}class="active" {% endif
-                        %}>Power BI</a></li>
                 <li><a href="{{ url_for('behavioral_patterns') }}" {% if request.endpoint=='behavioral_patterns' %}class="active" {% endif
                         %}>Behavioral Patterns</a></li>
+                <li><a href="{{ url_for('powerbi') }}" {% if request.endpoint=='powerbi' %}class="active" {% endif
+                        %}>Power BI</a></li>
             </ul>
         </div>
     </nav>
