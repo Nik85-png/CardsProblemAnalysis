@@ -8,3 +8,9 @@ __pycache__/
 
 # OS files
 .DS_Store
+.venv/
+
+INTEGRATION_NOTES/
+
+Thumbs.db
+play_sessions.db

@@ -23,6 +23,9 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for server
 
 app = Flask(__name__)
+
+from behavioral_app import bp as behavioral_bp
+app.register_blueprint(behavioral_bp, url_prefix='/behavioral-app')
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 
 # Global variables
@@ -1529,7 +1532,13 @@ def powerbi():
 def behavioral_patterns():
     return render_template('behavioral_patterns.html')
 
-# ============================================================================
+###############################################################################
+##########Nikunj Prajapati - Card Sorting Behavioral Analysis (9 Analyses)####
+@app.route('/nikunj_analysis')
+def nikunj_analysis():
+    return render_template('nikunj.html')
+
+###############################################################################
 # APPLICATION STARTUP - Load data when module is imported
 # ============================================================================
 # Load data at module level (works with gunicorn)
