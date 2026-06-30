@@ -1,11 +1,16 @@
+# Don't commit generated animations
+static/animations/*.html
+
+# Virtual environment
+venv/
 __pycache__/
 *.pyc
 
+# OS files
+.DS_Store
 .venv/
-venv/
 
 INTEGRATION_NOTES/
 
-.DS_Store
 Thumbs.db
 play_sessions.db
