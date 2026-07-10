@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+
+.venv/
+venv/
+.venvPS/
+
+INTEGRATION_NOTES/
+
+.DS_Store
+Thumbs.db
+play_sessions.db
+*.orig.bak
+*.test_bak
+data/.shipped/
+.design-baseline/
+
+# Temporary / session artifacts
+nul
+_patch_all.py
+CHANGELOG.md

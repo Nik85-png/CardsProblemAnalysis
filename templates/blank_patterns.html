@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Hint Effects Analysis - Cards Problem Study{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>Hint Effects Analysis (Blank Patterns)</h1>
+        <p>Investigate how the presence of blank cards (as hints) influences problem-solving behavior, instruction rechecks, and solution success rates. Compare patterns across conditions and participants.</p>
+    </div>
+
+    <div class="blank-patterns-panel">
+        <div class="blank-patterns-filters">
+            <div class="filter-group">
+                <label for="conditionSelect">Condition</label>
+                <select id="conditionSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="patternSelect">Pattern</label>
+                <select id="patternSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="participantSelect">Participant</label>
+                <select id="participantSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="trialSelect">Trial</label>
+                <select id="trialSelect"></select>
+            </div>
+        </div>
+
+        <div id="errorBox" class="blank-error-box" style="display:none;"></div>
+
+        <div id="summaryBox" class="blank-summary-box">
+            <div class="summary-row"><span class="summary-label">Status:</span><span id="summaryOutcome">-</span></div>
+            <div class="summary-row"><span class="summary-label">Selected Condition:</span><span id="summarySelectedCondition">-</span></div>
+            <div class="summary-row"><span class="summary-label">Actual Condition:</span><span id="summaryActualCondition">-</span></div>
+            <div class="summary-row"><span class="summary-label">Participant:</span><span id="summaryParticipant">-</span></div>
+            <div class="summary-row"><span class="summary-label">Trial:</span><span id="summaryTrial">-</span></div>
+            <div class="summary-row"><span class="summary-label">Pattern:</span><span id="summaryPattern">-</span></div>
+            <div class="summary-row"><span class="summary-label">SR:</span><span id="summarySR">-</span></div>
+            <div class="summary-row"><span class="summary-label">N:</span><span id="summaryN">-</span></div>
+        </div>
+
+        <div class="blank-grid-wrapper">
+            <div class="blank-grid-header">
+                <div class="corner-cell"></div>
+                {% for col in range(1, 9) %}
+                    <div class="axis-label axis-top">{{ col }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="blank-grid-body">
+                {% for row in ['A','B','C','D','E','F','G','H'] %}
+                    <div class="axis-label axis-left">{{ row }}</div>
+                    {% for col in range(1, 9) %}
+                        <div class="grid-cell empty" data-pos="{{ row }}{{ col }}">
+                            <div class="cell-content">
+                                <div class="cell-index"></div>
+                                <div class="cell-symbol"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="blank-legend-box">
+            <div class="legend-items">
+                <div class="legend-item"><span class="legend-color legend-blank"></span><span>Blank</span></div>
+                <div class="legend-item"><span class="legend-color legend-other"></span><span>King / Queen / Jack</span></div>
+                <div class="legend-item"><span class="legend-color legend-empty"></span><span>Empty</span></div>
+            </div>
+        </div>
+
+        <div class="blank-raw-legend-box">
+            <h3>Legend (comma-separated)</h3>
+            <p id="rawLegendText">-</p>
+        </div>
+        </div>
+        <!-- documentation -->
+    <div class="blank-doc-summary">
+        <div class="summary-card">
+            <div class="summary-card-label">Total Records</div>
+            <div class="summary-card-value" id="docSummaryTotal">0</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-card-label">Success</div>
+            <div class="summary-card-value" id="docSummarySuccess">0</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-card-label">Fail</div>
+            <div class="summary-card-value" id="docSummaryFail">0</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-card-label">Success Rate</div>
+            <div class="summary-card-value" id="docSummaryRate">0%</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-card-label">Unique Participants</div>
+            <div class="summary-card-value" id="docSummaryParticipants">0</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-card-label">Unique Patterns</div>
+            <div class="summary-card-value" id="docSummaryPatterns">0</div>
+        </div>
+    </div>
+        <!-- table -->
+        <div class="blank-docs-box">
+        <h2>Pattern Documentation</h2>
+        <p>Filter the supporting table records without showing the full long table at once.</p>
+        <!-- download button -->
+        <div class="blank-doc-actions">
+            <button id="downloadDocCsvBtn" class="download-btn">Download CSV</button>
+        </div>
+        <!-- /////////////////////////// -->
+        <div class="blank-doc-filters">
+            <div class="filter-group">
+                <label for="docConditionSelect">Condition</label>
+                <select id="docConditionSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="docPatternSelect">Pattern</label>
+                <select id="docPatternSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="docStatusSelect">Status</label>
+                <select id="docStatusSelect"></select>
+            </div>
+
+            <div class="filter-group">
+                <label for="docRowsSelect">Rows</label>
+                <select id="docRowsSelect">
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="blank-doc-table-wrap">
+            <table class="blank-doc-table">
+                <thead>
+                    <tr>
+                        <th>N</th>
+                        <th>Condition</th>
+                        <th>Pattern</th>
+                        <th>Participant</th>
+                        <th>Trial</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="docTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div id="docTableInfo" class="doc-table-info"></div>
+    </div>
+    <!-- documentation -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/blank_patterns.js') }}"></script>
+{% endblock %}

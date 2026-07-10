@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Cards Problem Analysis{% endblock %}
+
+{% block content %}
+<section class="app-hero">
+    <p class="app-eyebrow">Research study · Solving without understanding</p>
+    <h1 class="app-hero-title">
+        Solving the Cards problem
+        <span class="app-hero-title__em">{{ stats.unique_participants }} people placed Kings, Queens, and Jacks on an 8×8 grid. Some had blank cards as flexible placeholders — and most ignored them. This study shows what happened.</span>
+    </h1>
+    <p class="app-hero-sub">
+        Where they put each card, how many moves it took, whether they rechecked the instructions, and why the blank-card hint mattered more than expected — all from a single anonymised dataset across {{ stats.total_trials }} trials.
+    </p>
+    <div class="app-hero-cta">
+        <a href="{{ url_for('explorer') }}" class="btn btn-primary">Open Explorer →</a>
+        <a href="{{ url_for('blank_card_paradox') }}" class="btn btn-ghost">Read the research story</a>
+    </div>
+</section>
+
+<section class="app-stat-strip" aria-label="Dataset summary">
+    <div class="app-stat">
+        <div class="app-stat-value">{{ stats.total_trials }}</div>
+        <div class="app-stat-label">Total trials</div>
+    </div>
+    <div class="app-stat">
+        <div class="app-stat-value">{{ stats.unique_participants }}</div>
+        <div class="app-stat-label">Participants</div>
+    </div>
+    <div class="app-stat app-stat--success">
+        <div class="app-stat-value">{{ stats.success_trials }}</div>
+        <div class="app-stat-label">Successful</div>
+    </div>
+    <div class="app-stat app-stat--fail">
+        <div class="app-stat-value">{{ stats.failed_trials }}</div>
+        <div class="app-stat-label">Failed</div>
+    </div>
+    <div class="app-stat app-stat--accent">
+        <div class="app-stat-value">{{ "%.1f"|format(stats.success_rate) }}<span style="font-size:1rem;color:var(--app-text-tertiary);font-weight:600;">%</span></div>
+        <div class="app-stat-label">Success rate</div>
+    </div>
+    <div class="app-stat">
+        <div class="app-stat-value">{{ "%.1f"|format(stats.avg_moves) }}</div>
+        <div class="app-stat-label">Avg moves / trial</div>
+    </div>
+</section>
+
+<div class="app-divider"></div>
+
+<section class="app-section">
+    <div class="app-section-head">
+        <p class="app-section-eyebrow">Tooling</p>
+        <h2 class="app-section-title">Explore the analysis</h2>
+        <p class="app-section-sub">
+            Seven views into the same dataset. Pick any tile to load it — the upload widget at the top-right lets you supply your own <code>CardsDataset.csv</code> at any time. Uploads persist across navigation and refresh reverts them, so the original reference dataset is never far away.
+        </p>
+    </div>
+
+    <div class="app-tooling-grid">
+        <a class="app-tool" href="{{ url_for('explorer') }}">
+            <span class="app-tool__index">01</span>
+            <h3 class="app-tool__title">Problem Attempts</h3>
+            <p class="app-tool__desc">Step through animated card placements on the 8×8 grid. Choose any participant × trial × condition.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('patterns') }}">
+            <span class="app-tool__index">02</span>
+            <h3 class="app-tool__title">Solution Patterns</h3>
+            <p class="app-tool__desc">Most frequent final card arrangements — success vs failure. Click through to see which participants matched.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('blank_patterns_page') }}">
+            <span class="app-tool__index">03</span>
+            <h3 class="app-tool__title">Hint Effects</h3>
+            <p class="app-tool__desc">How blank-card hints influenced placement behaviour across the KQJB and KQB conditions. Documentation table included.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('blank_card_paradox') }}">
+            <span class="app-tool__index">04</span>
+            <h3 class="app-tool__title">Blank Card Paradox</h3>
+            <p class="app-tool__desc">A research narrative on why blank cards — a useful tool — were ignored by most participants. Includes animated viewer.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('behavioural_analysis') }}">
+            <span class="app-tool__index">05</span>
+            <h3 class="app-tool__title">Behavioral Analysis</h3>
+            <p class="app-tool__desc">Nine statistical analyses: instruction rechecks, blank-card impact, move efficiency, strategy correlations.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('behavioral_patterns') }}">
+            <span class="app-tool__index">06</span>
+            <h3 class="app-tool__title">Behavioral Patterns</h3>
+            <p class="app-tool__desc">Grid heatmaps showing where participants placed cards most frequently. Compare spatial strategies across conditions.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+        <a class="app-tool" href="{{ url_for('powerbi') }}">
+            <span class="app-tool__index">07</span>
+            <h3 class="app-tool__title">Power BI Dashboard</h3>
+            <p class="app-tool__desc">A broader interactive dashboard summarising the study across all conditions and participants.</p>
+            <span class="app-tool__arrow">Open →</span>
+        </a>
+    </div>
+</section>
+{% endblock %}
