@@ -66,27 +66,27 @@ class AnimationPlayer {
         this.container.innerHTML = `
             <div class="animation-player">
                 <div class="animation-header" style="text-align: center; margin-bottom: 0.75rem;">
-                    <h3 style="color: #667eea; margin: 0 0 0.5rem 0; font-size: 1.25rem;">Animation - Participant ${this.participant}, Trial ${this.trial}</h3>
-                    <p style="margin: 0; font-size: 0.9rem; color: #666;">
+                    <h3 style="color: var(--app-text-primary, #0f172a); margin: 0 0 0.5rem 0; font-size: 1.15rem; font-weight: 700;">Animation - Participant ${this.participant}, Trial ${this.trial}</h3>
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--app-text-secondary, #475569);">
                         <strong>Condition:</strong> ${this.condition} | 
                         <strong>Moves:</strong> ${this.totalMoves} | 
-                        ${this.success ? '<span style="color: green; font-weight: bold;">✓ Success</span>' : '<span style="color: red; font-weight: bold;">✗ Failed</span>'}
+                        ${this.success ? '<span style="color: var(--app-success, #059669); font-weight: 600;">Success</span>' : '<span style="color: var(--app-fail, #dc2626); font-weight: 600;">Failed</span>'}
                     </p>
                 </div>
                 
                 <div class="animation-display" style="position: relative; max-width: 600px; margin: 0 auto;">
                     <img id="animation-frame-img" 
                          alt="Animation frame" 
-                         style="width: 100%; height: 500px; object-fit: contain; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f5; display: block;">
+                         style="width: 100%; min-height: 400px; max-height: 560px; object-fit: contain; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 12px; background: var(--app-bg, #f6f7f9); display: block; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
 
                 </div>
                 
-                <div class="animation-controls" style="max-width: 600px; margin: 1rem auto 0; padding: 0.75rem; background: #f9f9f9; border-radius: 8px;">
+                <div class="animation-controls" style="max-width: 600px; margin: 1rem auto 0; padding: 1rem; background: var(--app-surface, #ffffff); border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                     <div style="display: flex; gap: 0.4rem; margin-bottom: 0.75rem; justify-content: center; flex-wrap: wrap;">
-                        <button id="play-pause-btn" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; min-width: 70px;">▶ Play</button>
-                        <button id="stop-btn" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; min-width: 60px;">⏹ Stop</button>
-                        <button id="prev-btn" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; min-width: 60px;">⏮ Prev</button>
-                        <button id="next-btn" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; min-width: 60px;">⏭ Next</button>
+                        <button id="play-pause-btn" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.8rem; min-width: 60px; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 6px; background: var(--app-surface, #ffffff); color: var(--app-text-primary, #0f172a); cursor: pointer; font-weight: 600; transition: all 0.15s ease;">▶ Play</button>
+                        <button id="stop-btn" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.8rem; min-width: 60px; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 6px; background: var(--app-surface, #ffffff); color: var(--app-text-primary, #0f172a); cursor: pointer; font-weight: 600; transition: all 0.15s ease;">⏹ Stop</button>
+                        <button id="prev-btn" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.8rem; min-width: 60px; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 6px; background: var(--app-surface, #ffffff); color: var(--app-text-primary, #0f172a); cursor: pointer; font-weight: 600; transition: all 0.15s ease;">⏮ Prev</button>
+                        <button id="next-btn" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.8rem; min-width: 60px; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 6px; background: var(--app-surface, #ffffff); color: var(--app-text-primary, #0f172a); cursor: pointer; font-weight: 600; transition: all 0.15s ease;">⏭ Next</button>
                     </div>
                     
                     <div class="frame-slider" style="width: 100%; margin-bottom: 0.75rem;">
@@ -96,14 +96,14 @@ class AnimationPlayer {
                                max="${this.totalFrames - 1}" 
                                value="0" 
                                style="width: 100%; height: 6px; cursor: pointer;">
-                        <div id="frame-label" style="text-align: center; color: #666; margin-top: 0.4rem; font-size: 0.85rem;">
+                        <div id="frame-label" style="text-align: center; color: var(--app-text-secondary, #475569); margin-top: 0.4rem; font-size: 0.8rem; font-weight: 500;">
                             Frame: 0 / ${this.totalFrames - 1}
                         </div>
                     </div>
                     
                     <div class="speed-control" style="display: flex; align-items: center; gap: 0.4rem; justify-content: center;">
-                        <label style="font-size: 0.85rem; margin: 0;">Speed:</label>
-                        <select id="speed-select" class="form-control" style="padding: 0.3rem 0.5rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <label style="font-size: 0.8rem; margin: 0; color: var(--app-text-secondary, #475569); font-weight: 500;">Speed:</label>
+                        <select id="speed-select" class="form-control" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; border: 1px solid var(--app-border-default, #e5e7eb); border-radius: 6px; background: var(--app-surface, #ffffff); color: var(--app-text-primary, #0f172a);">
                             <option value="0.5">0.5x</option>
                             <option value="1">1x</option>
                             <option value="2" selected>2x</option>

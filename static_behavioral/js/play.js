@@ -1,3 +1,25 @@
+/* === Theme bridge (postMessage from parent) === */
+(function() {
+    try {
+        window.addEventListener('message', function(e) {
+            var data = e.data || {};
+            if (!data || data.type !== 'card-theme') return;
+            var value = data.value === 'dark' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', value);
+            try { localStorage.setItem('app-theme', value); } catch (_) {}
+        });
+        // Initial sync: read from localStorage, fall back to system preference
+        var stored = null;
+        try { stored = localStorage.getItem('app-theme'); } catch (_) {}
+        if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            stored = 'dark';
+        }
+        if (stored === 'dark' || stored === 'light') {
+            document.documentElement.setAttribute('data-theme', stored);
+        }
+    } catch (_) {}
+})();
+
 const API_BASE = window.BEHAVIORAL_API_BASE || '';
 ﻿const state = {
     visitorId: localStorage.getItem('cards_visitor_token') || '',

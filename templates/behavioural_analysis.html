@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Behavioral Analysis - Cards Problem Study{% endblock %}
+
+{% block extra_css %}
+<style>
+.ba-embed-wrap { padding: 0; }
+.ba-embed-frame {
+    width: 100%;
+    height: calc(100vh - 150px);
+    min-height: 720px;
+    border: 0;
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ba-embed-wrap">
+    <iframe id="baIframe" class="ba-embed-frame" src="{{ url_for('behavioral.index') }}" title="Behavioral Patterns Analysis" loading="lazy"></iframe>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var iframe = document.getElementById('baIframe');
+    if (!iframe) return;
+
+    function getTheme() {
+        return document.documentElement.getAttribute('data-theme') || 'light';
+    }
+
+    function sendTheme() {
+        try {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'card-theme', value: getTheme() }, '*');
+            }
+        } catch(e) { /* cross-origin guard */ }
+    }
+
+    // Send theme once the iframe has loaded
+    iframe.addEventListener('load', sendTheme);
+
+    // Also try immediately (iframe may already be loaded from cache)
+    if (iframe.contentWindow) {
+        sendTheme();
+    }
+
+    // Watch parent <html data-theme> for changes and forward to iframe
+    var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            if (mutations[i].attributeName === 'data-theme') {
+                sendTheme();
+                break;
+            }
+        }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>
+{% endblock %}

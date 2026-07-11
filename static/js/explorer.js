@@ -1,6 +1,63 @@
 // Explorer Page JavaScript - Trial Selection and Visualization
 // UPDATED: Uses frame-based animation (no worker timeouts)
 
+/**
+ * Render a card grid as HTML (matching the behavioural analysis card style).
+ * @param {Array} cells - Array of {row, col, value, suit}
+ */
+function renderCardGrid(cells, participant, trial, condition, success, totalMoves) {
+    const suitMap = {'K': '\u2660', 'Q': '\u2665', 'J': '\u2666', 'B': '?'};
+    const gridState = {};
+    cells.forEach(function(c) {
+        gridState[c.row + '-' + c.col] = c;
+    });
+
+    var boardHtml = '<div style="display:grid;grid-template-columns:28px repeat(8,1fr);grid-template-rows:28px repeat(8,1fr);gap:3px;max-width:520px;margin:0 auto;">';
+
+    // Corner + column headers
+    boardHtml += '<div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;"></div>';
+    for (var c = 0; c < 8; c++) {
+        boardHtml += '<div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;">' + (c+1) + '</div>';
+    }
+
+    for (var r = 0; r < 8; r++) {
+        // Row header
+        boardHtml += '<div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;">' + String.fromCharCode(65+r) + '</div>';
+        for (var c = 0; c < 8; c++) {
+            var key = r + '-' + c;
+            var cell = gridState[key];
+            if (cell) {
+                var val = cell.value;
+                var suit = suitMap[val] || '';
+                var isBlank = val === 'B';
+                var bg = isBlank ? '#9CA3AF' : '#FFFFFF';
+                var textColor = isBlank ? '#FFFFFF' : '#111827';
+                boardHtml += '<div style="border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:' + bg + ';border:1px solid ' + (isBlank ? '#808080' : '#D0D0D0') + ';box-shadow:0 2px 8px rgba(0,0,0,0.20);color:' + textColor + ';font-weight:700;aspect-ratio:3/4;min-width:0;">';
+                if (!isBlank) {
+                    boardHtml += '<span style="position:absolute;top:3px;left:4px;font-size:11px;font-weight:700;line-height:1;">' + val + '</span>';
+                }
+                boardHtml += '<span style="font-size:20px;line-height:1;">' + suit + '</span>';
+                boardHtml += '</div>';
+            } else {
+                boardHtml += '<div style="border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08);border:1px dashed rgba(255,255,255,0.18);aspect-ratio:3/4;min-width:0;"></div>';
+            }
+        }
+    }
+    boardHtml += '</div>';
+
+    return '<div style="text-align:center;">' +
+        '<h3 style="margin:0 0 12px;color:var(--app-text-primary,#0f172a);font-size:1.1rem;font-weight:700;">Final State - Participant ' + participant + ', Trial ' + trial + '</h3>' +
+        '<p style="margin:0 0 10px;font-size:0.85rem;color:var(--app-text-secondary,#475569);">' +
+        '<strong>Condition:</strong> ' + condition + ' | <strong>Moves:</strong> ' + totalMoves + ' | ' +
+        (success ? '<span style="color:var(--app-success,#059669);font-weight:600;">Success</span>' : '<span style="color:var(--app-fail,#dc2626);font-weight:600;">Failed</span>') +
+        '</p>' +
+        '<div style="background:linear-gradient(135deg,#06483f,#0b5a4f);border-radius:14px;padding:14px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 4px 24px rgba(0,0,0,0.25);">' +
+        boardHtml +
+        '</div>' +
+        '</div>';
+}
+
+
 document.addEventListener('DOMContentLoaded', function() {
     const conditionSelect = document.getElementById('condition-select');
     const participantSelect = document.getElementById('participant-select');
@@ -181,20 +238,19 @@ document.addEventListener('DOMContentLoaded', function() {
         hideElement(visualizationContainer);
         
         try {
-            const imageUrl = `/api/trial-image/${currentParticipant}/${currentTrial}`;
+            // Fetch grid data for HTML card rendering
+            const gridData = await fetchJSON(`/api/trial-grid/${currentParticipant}/${currentTrial}`);
             
             hideElement(loadingDiv);
             
-            visualizationContainer.innerHTML = `
-                <div style="text-align: center;">
-                    <h3 style="color: #667eea; margin-bottom: 1rem;">
-                        Final State - Participant ${currentParticipant}, Trial ${currentTrial}
-                    </h3>
-                    <img src="${imageUrl}" 
-                         alt="Trial final state" 
-                         style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;">
-                </div>
-            `;
+            visualizationContainer.innerHTML = renderCardGrid(
+                gridData.cells,
+                gridData.participant,
+                gridData.trial,
+                gridData.condition,
+                gridData.success,
+                gridData.total_moves
+            );
             showElement(visualizationContainer);
             
             // Scroll to visualization
@@ -205,9 +261,26 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('Error loading final state:', error);
-            hideElement(loadingDiv);
-            showError(visualizationContainer, 'Failed to load final state image.');
-            showElement(visualizationContainer);
+            // Fallback to server-rendered image if grid data fails
+            try {
+                const imageUrl = `/api/trial-image/${currentParticipant}/${currentTrial}`;
+                hideElement(loadingDiv);
+                visualizationContainer.innerHTML = `
+                    <div style="text-align: center;">
+                        <h3 style="color: #667eea; margin-bottom: 1rem;">
+                            Final State - Participant ${currentParticipant}, Trial ${currentTrial}
+                        </h3>
+                        <img src="${imageUrl}" 
+                             alt="Trial final state" 
+                             style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;">
+                    </div>
+                `;
+                showElement(visualizationContainer);
+            } catch (fallbackError) {
+                hideElement(loadingDiv);
+                showError(visualizationContainer, 'Failed to load final state.');
+                showElement(visualizationContainer);
+            }
         }
     });
 });

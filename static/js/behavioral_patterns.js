@@ -22,35 +22,56 @@ function bo(ext){return Object.assign({responsive:true,maintainAspectRatio:false
           y:{grid:{color:GC},ticks:{color:TC,font:{family:FM,size:10}}}}},ext||{});}
 
 /* CARD COLORS — Blank = WHITE */
-const CC={K:'#1db87a',Q:'#2272f5',J:'#f53b3b',B:'#ffffff',' ':'#dde6f5'};
-const CT={K:'#ffffff',Q:'#ffffff',J:'#ffffff',B:'#334488',' ':'transparent'};
+const CC={K:'bp-cell-K',Q:'bp-cell-Q',J:'bp-cell-J',B:'bp-cell-B',' ':'bp-cell-empty'};;
+const CT={K:'bp-rank-K',Q:'bp-rank-Q',J:'bp-rank-J',B:'bp-rank-B',' ':'bp-rank-empty'}
+const SUIT_CLASS={K:'bp-suit-K',Q:'bp-suit-Q',J:'bp-suit-J',B:'bp-suit-B',' ':'bp-suit-empty'};
+const SUIT_SYMBOL={K:'\u2660',Q:'\u2665',J:'\u2666',B:'?', ' ':''};;;
 
 /* DRAW GRID */
 function dg(svg,grid,cs,gold){
   svg.innerHTML='';const ns='http://www.w3.org/2000/svg';
+  // Empty board backdrop rect (so dark cells show even outside SVG)
+  const back=document.createElementNS(ns,'rect');
+  back.setAttribute('x',0);back.setAttribute('y',0);
+  back.setAttribute('width',8*cs);back.setAttribute('height',8*cs);
+  back.setAttribute('fill','#0D1B2A');svg.appendChild(back);
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const v=(grid&&grid[r]&&grid[r][c])||' ';
     const rect=document.createElementNS(ns,'rect');
-    rect.setAttribute('x',c*cs+.5);rect.setAttribute('y',r*cs+.5);
-    rect.setAttribute('width',cs-1);rect.setAttribute('height',cs-1);
-    rect.setAttribute('fill',CC[v]||CC[' ']);rect.setAttribute('rx','1');
-    if(v==='B'){rect.setAttribute('stroke','#ccc');rect.setAttribute('stroke-width','0.5');}
+    rect.setAttribute('x',c*cs+0.4);rect.setAttribute('y',r*cs+0.4);
+    rect.setAttribute('width',cs-0.8);rect.setAttribute('height',cs-0.8);
+    rect.setAttribute('class',CC[v]||CC[' ']);
+    rect.setAttribute('rx',Math.max(1, cs*0.10));
     svg.appendChild(rect);
     if(v!==' '){
+      // Top-left rank letter
       const t=document.createElementNS(ns,'text');
-      t.setAttribute('x',c*cs+cs/2);t.setAttribute('y',r*cs+cs/2+1);
-      t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','middle');
-      t.setAttribute('fill',CT[v]||'white');t.setAttribute('font-size',cs*.42);
+      t.setAttribute('x',c*cs+cs*0.20);t.setAttribute('y',r*cs+cs*0.36);
+      t.setAttribute('text-anchor','start');t.setAttribute('dominant-baseline','middle');
+      t.setAttribute('class',CT[v]||'bp-rank-empty');
+      t.setAttribute('font-size',Math.max(cs*0.32, 3));
       t.setAttribute('font-weight','700');t.setAttribute('font-family','IBM Plex Mono,monospace');
-      t.textContent=v;svg.appendChild(t);
+      t.textContent=v==='B'?'?':v;
+      svg.appendChild(t);
+      // Centered suit symbol
+      if(SUIT_SYMBOL[v]){
+        const s=document.createElementNS(ns,'text');
+        s.setAttribute('x',c*cs+cs*0.66);s.setAttribute('y',r*cs+cs*0.72);
+        s.setAttribute('text-anchor','middle');s.setAttribute('dominant-baseline','middle');
+        s.setAttribute('class',SUIT_CLASS[v]||'bp-suit-empty');
+        s.setAttribute('font-size',Math.max(cs*0.46, 4));
+        s.setAttribute('font-weight','700');s.setAttribute('font-family','IBM Plex Mono,monospace');
+        s.textContent=SUIT_SYMBOL[v];
+        svg.appendChild(s);
+      }
     }
   }
   if(gold){
     const b=document.createElementNS(ns,'rect');
-    b.setAttribute('x','1.5');b.setAttribute('y','1.5');
-    b.setAttribute('width',8*cs-3);b.setAttribute('height',8*cs-3);
-    b.setAttribute('fill','none');b.setAttribute('stroke','#ffb347');
-    b.setAttribute('stroke-width','3');b.setAttribute('rx','3');svg.appendChild(b);
+    b.setAttribute('x',1.6);b.setAttribute('y',1.6);
+    b.setAttribute('width',8*cs-3.2);b.setAttribute('height',8*cs-3.2);
+    b.setAttribute('fill','none');b.setAttribute('class','bp-outline-gold');
+    b.setAttribute('rx',Math.max(2, cs*0.12));svg.appendChild(b);
   }
 }
 
@@ -87,7 +108,7 @@ function gvRender(){
   const ti=parseInt(document.getElementById('gv-trial').value)||0;
   const trials=(TRIALS[GC_]&&TRIALS[GC_][pid])||[];
   const tr=trials[ti]||{outcome:'fail',grid:[]};
-  dg(document.getElementById('gv-svg'),tr.grid,32,tr.outcome==='win');
+  dg(document.getElementById('gv-svg'),tr.grid,50,tr.outcome==='win');
   const lbl=document.getElementById('gv-lbl');
   lbl.className='gv-out '+(tr.outcome==='win'?'win':'fail');
   lbl.textContent=tr.outcome==='win'?`Trial ${ti+1} — SUCCESSFUL ✓`:`Trial ${ti+1} — UNSUCCESSFUL ✗`;
@@ -101,8 +122,8 @@ function gvStrip(pid,trials){
     const lbl=document.createElement('div');lbl.className='tml '+(tr.outcome==='win'?'win':'fail');
     lbl.textContent=tr.outcome==='win'?`T${i+1}✓`:`T${i+1}✗`;
     const ns='http://www.w3.org/2000/svg';
-    const svg=document.createElementNS(ns,'svg');svg.setAttribute('width','70');svg.setAttribute('height','70');svg.setAttribute('viewBox','0 0 70 70');
-    dg(svg,tr.grid,8.75,tr.outcome==='win');
+    const svg=document.createElementNS(ns,'svg');svg.setAttribute('width','110');svg.setAttribute('height','110');svg.setAttribute('viewBox','0 0 110 110');
+    dg(svg,tr.grid,13.75,tr.outcome==='win');
     d.appendChild(lbl);d.appendChild(svg);strip.appendChild(d);
   });
 }
@@ -159,7 +180,7 @@ function gcRender(){
     const gw=document.createElement('div');gw.className='cmp-grid-wrap';
     const ns='http://www.w3.org/2000/svg';
     const svg=document.createElementNS(ns,'svg');
-    const cs=failPart.trials.length<=2?22:failPart.trials.length<=4?18:14;
+    const cs=failPart.trials.length<=2?40:failPart.trials.length<=4?36:32;
     svg.setAttribute('width',8*cs);svg.setAttribute('height',8*cs);svg.setAttribute('viewBox',`0 0 ${8*cs} ${8*cs}`);
     dg(svg,tr.grid,cs,false);
     gw.appendChild(svg);tb.appendChild(tlbl);tb.appendChild(gw);leftTrials.appendChild(tb);
@@ -181,7 +202,7 @@ function gcRender(){
     const gw=document.createElement('div');gw.className='cmp-grid-wrap'+(isWin?' gold':'');
     const ns='http://www.w3.org/2000/svg';
     const svg=document.createElementNS(ns,'svg');
-    const cs=succPart.trials.length<=2?22:succPart.trials.length<=4?18:14;
+    const cs=succPart.trials.length<=2?32:succPart.trials.length<=4?28:24;
     svg.setAttribute('width',8*cs);svg.setAttribute('height',8*cs);svg.setAttribute('viewBox',`0 0 ${8*cs} ${8*cs}`);
     dg(svg,tr.grid,cs,isWin);
     gw.appendChild(svg);tb.appendChild(tlbl);tb.appendChild(gw);rightTrials.appendChild(tb);

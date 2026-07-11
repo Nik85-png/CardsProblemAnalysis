@@ -7,6 +7,12 @@ Place this file as 'app.py' in your flask_card_analysis folder.
 
 import json
 import os
+import sys
+import hashlib
+import shutil
+import tempfile
+import threading
+from pathlib import Path
 import re
 import ast
 from collections import Counter
@@ -14,8 +20,6 @@ import base64
 import io
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.animation import FuncAnimation
-import matplotlib.pyplot as plt
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import numpy as np
@@ -27,6 +31,46 @@ app = Flask(__name__)
 from behavioral_app import bp as behavioral_bp
 app.register_blueprint(behavioral_bp, url_prefix='/behavioral-app')
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
+# Cap upload size — CardsDataset.csv is ~1.7 MB; 32 MB leaves room for richer datasets
+# without exposing the process to oversized payloads.
+app.config.setdefault('MAX_CONTENT_LENGTH', 32 * 1024 * 1024)
+
+# Soft import so a missing pandas / process_dataset doesn't block boot. The
+# route returns 503 if the pipeline isn't importable instead of widening the
+# except to swallow every error.
+try:
+    from process_dataset import (
+        process_csv_to_json,
+        atomic_write_json,
+        ProcessingError as DatasetProcessingError,
+    )
+    _CSV_PIPELINE_AVAILABLE = True
+except Exception as _proc_import_err:  # pragma: no cover
+    process_csv_to_json = None
+    atomic_write_json = None
+    DatasetProcessingError = RuntimeError
+    _CSV_PIPELINE_AVAILABLE = False
+    print(f"[upload-dataset] WARNING: process_dataset import failed: {_proc_import_err}")
+
+
+# Feature flag so deployments can lock the route without removing code.
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+ENABLE_DATASET_UPLOAD = _env_flag("ENABLE_DATASET_UPLOAD", True)
+
+from behavioral_app import DATA_PATH as _ANALYSIS_DATA_PATH
+
+# Paths for file regeneration / backup
+_BASE_DIR = Path(__file__).resolve().parent
+_DATA_DIR = _BASE_DIR / 'data'
+_CSV_PATH = _DATA_DIR / 'CardsDataset.csv'
+_EXCEL_PATH = _DATA_DIR / 'task1_B_condition_positioned_blank_cards.xlsx'
+_JSON_PATH = _DATA_DIR / 'card_analysis_data.json'
 
 # Global variables
 df = None
@@ -233,114 +277,110 @@ class CardPlacementVisualizer:
     def plot_grid(self, grid, ax, step, total_steps, trial_info):
         """
         Plot the grid state on a matplotlib axis.
-        Thread-safe implementation.
-
-        Parameters:
-        -----------
-        grid : numpy.ndarray
-            Current grid state
-        ax : matplotlib.axes.Axes
-            Axis to plot on
-        step : int
-            Current step number
-        total_steps : int
-            Total steps in trial
-        trial_info : dict
-            Trial metadata
+        Thread-safe implementation. Renders realistic playing-card faces
+        on a dark board matching the behavioural analysis aesthetic.
         """
         from matplotlib.patches import Rectangle
 
         ax.clear()
+        ax.set_facecolor("#0D1B2A")
 
-        # Set white background
-        ax.set_facecolor('white')
+        # Dark navy board background
+        board_bg = Rectangle((-0.5, -0.5), 8, 8, facecolor="#0D1B2A", zorder=0)
+        ax.add_patch(board_bg)
 
-        # Create light gray background
-        color_grid = np.zeros((self.grid_size, self.grid_size, 3))
+        # Draw empty cells: dark green
         for i in range(self.grid_size):
             for j in range(self.grid_size):
-                color_grid[i, j] = [0.97, 0.97, 0.97]
+                if grid[i, j] is None:
+                    cell = Rectangle((j - 0.46, i - 0.46), 0.92, 0.92,
+                                     facecolor="#1C4C3C", edgecolor="#2D6B55",
+                                     linewidth=0.5, alpha=0.7, zorder=1)
+                    ax.add_patch(cell)
 
-        ax.imshow(color_grid, aspect='auto')
-
-        # Draw gridlines
+        # Draw gridlines -- subtle teal
         for i in range(self.grid_size + 1):
-            ax.axhline(i - 0.5, color='gray', linewidth=0.8, alpha=0.3)
-            ax.axvline(i - 0.5, color='gray', linewidth=0.8, alpha=0.3)
+            ax.axhline(i - 0.5, color="#146C94", linewidth=0.5, alpha=0.35, zorder=2)
+            ax.axvline(i - 0.5, color="#146C94", linewidth=0.5, alpha=0.35, zorder=2)
 
         # Draw cards
         for i in range(self.grid_size):
             for j in range(self.grid_size):
                 if grid[i, j] is not None:
                     card_info = grid[i, j]
+                    is_blank = card_info.get("rank", "") == "blank"
 
-                    # Draw card rectangle
-                    rect = Rectangle((j - 0.45, i - 0.45), 0.9, 0.9,
-                                     facecolor=card_info['color'],
-                                     edgecolor='black',
-                                     linewidth=1.5,
-                                     alpha=0.9)
-                    ax.add_patch(rect)
+                    # Card face
+                    face_color = "#9CA3AF" if is_blank else "#FFFFFF"
+                    card_rect = Rectangle((j - 0.44, i - 0.44), 0.88, 0.88,
+                                          facecolor=face_color,
+                                          edgecolor="#3B4F6B" if not is_blank else "#64748B",
+                                          linewidth=1.2,
+                                          zorder=3)
+                    ax.add_patch(card_rect)
 
-                    # Add rank text - show "B" for blank cards
-                    if card_info['rank'] == 'blank':
-                        rank_text = 'B'
-                        # Blank cards don't show suit symbols
-                        suit_symbol = ''
+                    # Suit symbol color
+                    suit = card_info.get("suit", "").lower()
+                    symbol = card_info.get("symbol", "")
+                    is_red_suit = suit in ("hearts", "diamonds")
+                    text_color = "#DC2626" if is_red_suit else "#111827"
+
+                    if is_blank:
+                        # Blank card: show "?" in white on gray
+                        ax.text(j, i, "?", ha="center", va="center",
+                                fontsize=12, fontweight="bold",
+                                color="#FFFFFF", zorder=4)
                     else:
-                        rank_text = card_info['rank'][0].upper()
-                        suit_symbol = card_info['symbol']
+                        # Rank letter (top-left of card)
+                        rank_text = card_info["rank"][0].upper() if card_info.get("rank") else "?"
+                        ax.text(j - 0.28, i - 0.30, rank_text,
+                                ha="center", va="center",
+                                fontsize=11, fontweight="bold",
+                                color=text_color, zorder=4)
+                        # Suit symbol (centered on card)
+                        if symbol:
+                            ax.text(j, i + 0.04, symbol,
+                                    ha="center", va="center",
+                                    fontsize=15, fontweight="bold",
+                                    color=text_color, zorder=4)
 
-                    ax.text(j, i, rank_text,
-                            ha='center', va='center',
-                            fontsize=14, fontweight='bold',
-                            color='white')
-
-                    # Add suit symbol (only for non-blank cards)
-                    if suit_symbol:
-                        ax.text(j, i + 0.25, suit_symbol,
-                                ha='center', va='center',
-                                fontsize=9,
-                                color='white')
-
-        # Add row labels
+        # Row labels (1-8) on left
         for i in range(self.grid_size):
-            ax.text(-0.7, i, str(i + 1),
-                    ha='center', va='center',
-                    fontsize=9, fontweight='bold')
+            ax.text(-0.75, i, str(i + 1),
+                    ha="center", va="center",
+                    fontsize=8, fontweight="bold",
+                    color="#146C94", zorder=4)
 
-        # Add column labels
+        # Column labels (A-H) on top
         for j in range(self.grid_size):
-            ax.text(j, -0.7, chr(65 + j),
-                    ha='center', va='center',
-                    fontsize=9, fontweight='bold')
+            ax.text(j, -0.75, chr(65 + j),
+                    ha="center", va="center",
+                    fontsize=8, fontweight="bold",
+                    color="#146C94", zorder=4)
 
-        # Set axis properties
         ax.set_xlim(-1, self.grid_size)
         ax.set_ylim(self.grid_size, -1)
-        ax.axis('off')
+        ax.axis("off")
 
-        # Create title
-        participant = trial_info.get('participant', 'N/A')
-        trial_n = trial_info.get('trialN', 'N/A')
-        condition = trial_info.get('condition', 'N/A')
-        success = trial_info.get('overall_correct', 0)
-        is_pattern = trial_info.get('is_pattern', False)
+        # Title -- success green / fail red / neutral slate
+        participant = trial_info.get("participant", "N/A")
+        trial_n = trial_info.get("trialN", "N/A")
+        condition = trial_info.get("condition", "N/A")
+        success = trial_info.get("overall_correct", 0)
+        is_pattern = trial_info.get("is_pattern", False)
 
-        success_text = '✓ Success' if success == 1 else '✗ Failed'
-        title_color = 'green' if success == 1 else 'red'
+        success_text = "Success" if success == 1 else "Failed"
+        title_color = "#059669" if success == 1 else "#DC2626"
 
-        # Different format for patterns vs regular trials
         if is_pattern:
-            # Pattern format: "Pattern #1 | Frequency: 3 trials | Cards: 4 | ✓ Success"
-            title = f'Pattern {participant} | Frequency: {trial_n} | {condition} | {success_text}'
+            title = f"Pattern {participant}  |  Frequency: {trial_n}  |  {condition}  |  {success_text}"
         else:
-            # Regular trial format
-            title = f'Participant {participant} | Trial {trial_n} | Condition: {condition} | {success_text}\n'
-            title += f'Step {step}/{total_steps}'
+            title = f"Participant {participant}  |  Trial {trial_n}  |  {condition}  |  {success_text}"
+            if step is not None and total_steps is not None:
+                title += f"  |  Step {step}/{total_steps}"
 
-        ax.set_title(title, fontsize=11, fontweight='bold', pad=15,
-                     color=title_color if (is_pattern or step == total_steps) else 'black')
+        ax.set_title(title, fontsize=10, fontweight="bold", pad=12,
+                     color=title_color if (is_pattern or step == total_steps) else "#F8FAFC")
 
     def generate_static_image(self, participant, trial_n, step=None):
         """
@@ -404,115 +444,6 @@ class CardPlacementVisualizer:
         img_bytes.seek(0)
 
         return img_bytes
-
-    def generate_animation_html(self, participant, trial_n):
-        """
-        Generate HTML5 animation of the trial.
-        Server-compatible implementation with proper error handling.
-
-        Parameters:
-        -----------
-        participant : int
-            Participant ID
-        trial_n : int
-            Trial number
-
-        Returns:
-        --------
-        str : File path to the generated animation
-        """
-        try:
-            trial_data = self.df[(self.df['participant'] == participant) &
-                                 (self.df['trialN'] == trial_n)]
-
-            if trial_data.empty:
-                print(
-                    f"⚠ No data for participant {participant}, trial {trial_n}")
-                return None
-
-            trial_data = trial_data.iloc[0]
-            movements = trial_data['movement_codes']
-
-            if not movements:
-                print(
-                    f"⚠ No movements for participant {participant}, trial {trial_n}")
-                return None
-
-            # Use Figure instead of plt.subplots (server-safe)
-            from matplotlib.figure import Figure
-            from matplotlib.backends.backend_agg import FigureCanvasAgg
-
-            fig = Figure(figsize=(7, 7))
-            ax = fig.add_subplot(111)
-
-            trial_info = {
-                'participant': participant,
-                'trialN': trial_n,
-                'condition': trial_data.get('condition', 'N/A'),
-                'overall_correct': trial_data.get('overall_correct', 0)
-            }
-
-            total_steps = len(movements)
-            final_positions = trial_data.get('final_card_position_codes_1', [])
-
-            def update(frame):
-                ax.clear()
-                grid = self.create_grid_state(movements, frame)
-                if frame == total_steps:
-                    grid = self.add_blank_cards_to_grid(grid, final_positions)
-                self.plot_grid(grid, ax, frame, total_steps, trial_info)
-                fig.tight_layout()
-                return ax,
-
-            # Create animation
-            anim = FuncAnimation(fig, update, frames=total_steps + 1,
-                                 interval=500, repeat=True, blit=False)
-
-            # Save animation to file
-            anim_filename = f'animation_{participant}_{trial_n}.html'
-            anim_path = os.path.join('static', 'animations', anim_filename)
-
-            # Ensure directory exists (important on ephemeral filesystems like Render)
-            # NOTE: On Render free tier, this directory and files are ephemeral
-            # They're regenerated on-demand and lost when container restarts
-            # This is OK - animations are cached temporarily for performance
-            os.makedirs(os.path.join('static', 'animations'), exist_ok=True)
-
-            # Generate HTML content
-            html_content = anim.to_jshtml()
-
-            # Inject CSS to scale the matplotlib figure
-            css_injection = """
-<style>
-    body { margin: 0; padding: 0; overflow-x: hidden; }
-    div.animation { max-width: 550px !important; width: 100% !important; margin: 0 auto !important; text-align: center !important; }
-    div.animation img { max-width: 100% !important; width: auto !important; height: auto !important; display: block !important; margin: 0 auto !important; }
-    div.anim-controls { max-width: 550px !important; margin: 0 auto !important; }
-</style>
-"""
-            if '</head>' in html_content:
-                html_content = html_content.replace(
-                    '</head>', css_injection + '</head>')
-            else:
-                html_content = css_injection + html_content
-
-            # Write to file
-            with open(anim_path, 'w') as f:
-                f.write(html_content)
-
-            print(
-                f"✓ Animation generated: participant {participant}, trial {trial_n}")
-
-            # Clean up matplotlib objects
-            del fig, ax, anim
-
-            return f'/static/animations/{anim_filename}'
-
-        except Exception as e:
-            print(f"✗ Animation generation error: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return None
 
 # Data preprocessing functions
 
@@ -588,14 +519,14 @@ def get_pattern_counter(pattern_type):
 
 def load_data():
     """Load and preprocess the dataset."""
-    global df, visualizer
+    global df, visualizer, _pattern_cache
+    _pattern_cache = {'success': None, 'failure': None}
 
-    data_path = 'data/CardsDataset.csv'
-    if not os.path.exists(data_path):
+    if not _CSV_PATH.exists():
         return False
 
     # Load CSV
-    df = pd.read_csv(data_path)
+    df = pd.read_csv(_CSV_PATH)
 
     # Preprocess movement columns
     df['movement_codes'] = df['movement_codes'].apply(safe_literal_eval)
@@ -635,17 +566,44 @@ RANK_SYMBOL = {
 ROWS = {letter: idx for idx, letter in enumerate("ABCDEFGH")}
 
 
+def regenerate_excel_from_csv(source_df):
+    """Recreate the Blank Patterns Excel from the in-memory CSV.
+
+    The Excel shipped with the app is simply the full CardsDataset.csv
+    filtered to the two B‑condition tasks (KQJB, KQB).  Regenerating it
+    here keeps the Blank Patterns tab in sync with whatever CSV is
+    currently loaded — no separate Excel upload needed.
+    """
+    if source_df is None or source_df.empty:
+        return False
+    try:
+        _B_CONDITIONS = {'KQJB', 'KQB'}
+        subset = source_df[source_df['condition'].isin(_B_CONDITIONS)]
+        if subset.empty:
+            print("[Excel regen] No KQJB/KQB rows found — skipping Excel write.")
+            return False
+        subset.to_excel(
+            _EXCEL_PATH,
+            sheet_name='B_condition_blank_cards',
+            index=False,
+        )
+        print(f"[Excel regen] Wrote {len(subset)} rows to {_EXCEL_PATH.name}")
+        return True
+    except Exception as exc:
+        print(f"[Excel regen] FAILED: {exc}")
+        return False
+
+
 def load_blank_patterns_data():
     """
     Load and preprocess the Excel file for blank pattern analysis.
     """
     global blank_patterns_df
 
-    excel_path = os.path.join(
-        "data", "task1_B_condition_positioned_blank_cards.xlsx")
+    excel_path = _EXCEL_PATH
     sheet_name = "B_condition_blank_cards"
 
-    if not os.path.exists(excel_path):
+    if not excel_path.exists():
         print(f"[Blank Patterns] File not found: {excel_path}")
         blank_patterns_df = pd.DataFrame()
         return
@@ -990,10 +948,207 @@ def patterns():
                            failure_count=len(failure_df))
 
 
-@app.route('/shana-project')
-def shana_project():
-    """Shana's one-page research story with embedded viewer."""
-    return render_template('shana.html')
+@app.route('/blank-card-paradox')
+def blank_card_paradox():
+    """Blank Card Paradox research page with embedded viewer."""
+    return render_template('blank_card_paradox.html')
+
+
+# ============================================================================
+# BLANK CARD PARADOX DYNAMIC DATA API
+# ============================================================================
+
+def _parse_movement_to_viewer(move_str, step_idx):
+    """Parse a movement_code string into the viewer's expected format.
+
+    Examples: 'queen_spades_A1' → {card:'queen',label:'Q',row:0,col:0,...}
+              'blank_B3'       → {card:'blank',label:'?',row:1,col:2,...}
+    """
+    if pd.isna(move_str) or not isinstance(move_str, str) or move_str == '':
+        return {'card': 'unknown', 'label': '?', 'offGrid': True, 'step': step_idx + 1}
+    parts = move_str.split('_')
+    rank = parts[0].lower()
+    label_map = {'king': 'K', 'queen': 'Q', 'jack': 'J', 'blank': '?'}
+    label = label_map.get(rank, '?')
+
+    # Extract position (last segment)
+    pos_str = parts[-1]
+    m = re.match(r'^([A-H])(\d{1,2})$', pos_str.upper())
+    if m:
+        col = ord(m.group(1)) - ord('A')
+        row = int(m.group(2)) - 1
+        if 0 <= row < 8 and 0 <= col < 8:
+            return {
+                'card': rank, 'label': label, 'row': row, 'col': col,
+                'cell': pos_str.upper(), 'offGrid': False, 'step': step_idx + 1,
+            }
+    return {'card': rank, 'label': label, 'offGrid': True, 'step': step_idx + 1}
+
+
+def _parse_final_positions_to_layout(final_positions):
+    """Parse final_card_position_codes_1 into the viewer's finalLayout format."""
+    layout = []
+    if not final_positions or not isinstance(final_positions, list):
+        return layout
+    for fp in final_positions:
+        if not isinstance(fp, str):
+            continue
+        parts = fp.split('_')
+        rank = parts[0].lower()
+        label_map = {'king': 'K', 'queen': 'Q', 'jack': 'J', 'blank': '?'}
+        label = label_map.get(rank, '?')
+        pos_str = parts[-1]
+        m = re.match(r'^([A-H])(\d{1,2})$', pos_str.upper())
+        off_grid = not bool(m)
+        layout.append({'card': rank, 'label': label, 'offGrid': off_grid})
+    return layout
+
+
+def _has_blank_in_moves(movements):
+    """Check if any movement contains a blank card."""
+    if not movements or not isinstance(movements, list):
+        return False
+    return any('blank' in str(m).lower() for m in movements)
+
+
+@app.route('/api/bcp/summary')
+def api_bcp_summary():
+    """Return Blank Card Paradox summary statistics computed from the live CSV."""
+    if df is None:
+        return jsonify({'error': 'Dataset not loaded'}), 503
+
+    d = df.copy()
+    # Determine blank-card usage across all trials
+    d['_used_blank'] = d['movement_codes'].apply(_has_blank_in_moves)
+    # Also check final positions
+    d['_final_has_blank'] = d['final_card_position_codes_1'].apply(
+        lambda fps: any('blank' in str(f).lower() for f in (fps or [])))
+    d['_has_blank'] = d['_used_blank'] | d['_final_has_blank']
+
+    total = len(d)
+    blank_users_count = d['participant'][d['_has_blank']].nunique()
+    non_blank_users_count = d['participant'].nunique() - blank_users_count
+    eligible_participants = d['participant'][d['condition'].isin(['KQJB', 'KQB'])].nunique()
+
+    blank_user_success = d[d['_has_blank']]['overall_correct'].mean() * 100 if blank_users_count > 0 else 0
+    non_blank_user_success = d[~d['_has_blank']]['overall_correct'].mean() * 100 if non_blank_users_count > 0 else 0
+
+    conditions = {}
+    for cond in ['KQ', 'KQB', 'KQJ', 'KQJB']:
+        cd = d[d['condition'] == cond]
+        if cd.empty:
+            conditions[cond] = {'participants': 0, 'usedBlankCount': 0,
+                                'successRate': 0, 'successWithBlank': None, 'successWithoutBlank': None}
+            continue
+        has_blank = cd[cd['_has_blank']]
+        no_blank = cd[~cd['_has_blank']]
+        conditions[cond] = {
+            'participants': int(cd['participant'].nunique()),
+            'usedBlankCount': int(has_blank['participant'].nunique()),
+            'successRate': round(cd['overall_correct'].mean() * 100, 1),
+            'successWithBlank': round(has_blank['overall_correct'].mean() * 100, 1) if len(has_blank) > 0 else None,
+            'successWithoutBlank': round(no_blank['overall_correct'].mean() * 100, 1) if len(no_blank) > 0 else None,
+        }
+
+    return jsonify({
+        'summary': {
+            'participants': int(d['participant'].nunique()),
+            'blankUsers': blank_users_count,
+            'blankUsageRateOverall': round(blank_users_count / total * 100, 1) if total > 0 else 0,
+            'blankUsageRateEligible': round(blank_users_count / eligible_participants * 100, 1) if eligible_participants > 0 else 0,
+            'successWithBlank': round(blank_user_success, 1),
+            'successWithoutBlank': round(non_blank_user_success, 1),
+            'conditions': conditions,
+        }
+    })
+
+
+@app.route('/api/bcp/participants')
+def api_bcp_participants():
+    """Return participant-grid data for the Blank Card Paradox page."""
+    if df is None:
+        return jsonify({'error': 'Dataset not loaded'}), 503
+
+    d = df.copy()
+    d['_has_blank'] = d['movement_codes'].apply(_has_blank_in_moves) | \
+                      d['final_card_position_codes_1'].apply(
+                          lambda fps: any('blank' in str(f).lower() for f in (fps or [])))
+
+    # Aggregate per participant: one row = last successful trial or first trial
+    participants = []
+    for pid, group in d.groupby('participant'):
+        row = group.iloc[0]
+        success = bool(row['overall_correct'] == 1)
+        # Check if ANY trial for this participant used blanks
+        used_blank = bool(group['_has_blank'].any())
+        participants.append({
+            'id': int(pid),
+            'condition': str(row['condition']),
+            'usedBlank': used_blank,
+            'success': success,
+        })
+
+    participants.sort(key=lambda p: p['id'])
+    return jsonify({'participants': participants})
+
+
+@app.route('/api/bcp/viewer-data')
+def api_bcp_viewer_data():
+    """Return viewer-compatible participant data from the live CSV.
+
+    Each participant gets a single entry with:
+      - Moves parsed from movement_codes (simplified — no per-step timestamps)
+      - Final layout parsed from final_card_position_codes_1
+      - Single-trial representation (the CSV has one row per trial)
+    """
+    if df is None:
+        return jsonify({'error': 'Dataset not loaded'}), 503
+
+    viewers = []
+    for pid, group in df.groupby('participant'):
+        row = group.iloc[0]
+        movements_raw = row.get('movement_codes', [])
+        if not isinstance(movements_raw, list):
+            movements_raw = []
+
+        moves = [_parse_movement_to_viewer(m, i) for i, m in enumerate(movements_raw)]
+        final_layout = _parse_final_positions_to_layout(row.get('final_card_position_codes_1', []))
+
+        used_blank = _has_blank_in_moves(movements_raw) or \
+                     any(f.get('card') == 'blank' for f in final_layout)
+        success = bool(row['overall_correct'] == 1)
+        move_count = len(movements_raw)
+
+        viewers.append({
+            'id': int(pid),
+            'condition': str(row['condition']),
+            'usedBlank': used_blank,
+            'success': success,
+            'rowCorrect': True,
+            'colCorrect': True,
+            'trialsToCorrect': 1 if success else 0,
+            'finalTrialIndex': 0,
+            'defaultTrialNumber': 1,
+            'trialCount': 1,
+            'moveCount': move_count,
+            'moves': moves,
+            'finalLayout': final_layout,
+            'trials': [{
+                'trialNumber': 1,
+                'trialIndex': 0,
+                'endType': 'submit',
+                'success': success,
+                'rowCorrect': True,
+                'colCorrect': True,
+                'usedBlank': used_blank,
+                'moveCount': move_count,
+                'moves': moves,
+                'finalLayout': final_layout,
+            }],
+        })
+
+    viewers.sort(key=lambda p: p['id'])
+    return jsonify({'participants': viewers})
 
 
 # ============================================================================
@@ -1149,24 +1304,6 @@ def animation_frame(participant, trial_n, frame_index):
         return str(e), 500
 
 
-@app.route('/api/generate-animation/<int:participant>/<int:trial_n>')
-def generate_animation_deprecated(participant, trial_n):
-    """
-    DEPRECATED: This endpoint caused WORKER TIMEOUT on Render.
-    Use frame-based animation instead for production deployment.
-    """
-    return jsonify({
-        'error': 'This endpoint is deprecated due to memory issues',
-        'message': 'Use frame-based animation endpoints instead',
-        'new_endpoints': {
-            'metadata': f'/api/animation-info/{participant}/{trial_n}',
-            'frame_example': f'/api/animation-frame/{participant}/{trial_n}/0'
-        },
-        'reason': 'Full animation generation exceeds Render free tier limits (512MB RAM, 30s timeout)',
-        'migration': 'See documentation for AnimationPlayer JavaScript class'
-    }), 410  # 410 Gone
-
-
 @app.route('/api/trial-image/<int:participant>/<int:trial_n>')
 def trial_image(participant, trial_n):
     """Get static image of trial's final state."""
@@ -1177,6 +1314,75 @@ def trial_image(participant, trial_n):
 
     return send_file(img_bytes, mimetype='image/png')
 
+
+def trial_image(participant, trial_n):
+    """Get static image of trial's final state."""
+    img_bytes = visualizer.generate_static_image(participant, trial_n)
+
+
+@app.route('/api/trial-grid/<int:participant>/<int:trial_n>')
+def trial_grid(participant, trial_n):
+    """Get trial grid data as JSON for client-side HTML card rendering."""
+    import pandas as pd
+    import numpy as np
+
+    if df is None:
+        return jsonify({'error': 'Dataset not loaded'}), 503
+
+    trial_data = df[(df['participant'] == participant) & (df['trialN'] == trial_n)]
+    if trial_data.empty:
+        return jsonify({'error': 'Trial not found'}), 404
+
+    row = trial_data.iloc[0]
+    movements_raw = row.get('movement_codes', []) or []
+    movements = _parse_movement_codes(movements_raw)
+
+    grid = visualizer.create_grid_state(movements, len(movements))
+    final_positions = row.get('final_card_position_codes_1', [])
+    if final_positions and len(final_positions) > 0:
+        grid = visualizer.add_blank_cards_to_grid(grid, final_positions)
+
+    # Convert grid to JSON-safe format: list of {row, col, value, suit}
+    cells = []
+    for r in range(8):
+        for c in range(8):
+            val = grid[r][c]
+            if val and val != ' ':
+                cells.append({
+                    'row': r,
+                    'col': c,
+                    'value': str(val),
+                    'suit': SUIT_SYMBOLS.get(str(val), ''),
+                })
+
+    result = {
+        'participant': int(row['participant']),
+        'trial': int(row['trialN']),
+        'condition': str(row.get('condition', '')),
+        'success': bool(row.get('overall_correct', 0) == 1),
+        'total_moves': len(movements),
+        'cells': cells,
+    }
+
+    # Convert numpy types
+    import json as _json
+    class NpEncoder(_json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, (np.integer,)): return int(obj)
+            if isinstance(obj, (np.floating,)): return float(obj)
+            if isinstance(obj, (np.ndarray,)): return obj.tolist()
+            return super().default(obj)
+
+    return app.response_class(
+        response=_json.dumps(result, cls=NpEncoder),
+        status=200,
+        mimetype='application/json'
+    )
+
+
+# Add suit symbol mapping at module level if not present
+if 'SUIT_SYMBOLS' not in dir():
+    SUIT_SYMBOLS = {'K': 'spades', 'Q': 'hearts', 'J': 'diamonds', 'B': 'blank'}
 
 @app.route('/api/analyze-patterns/<pattern_type>')
 def analyze_patterns(pattern_type):
@@ -1296,52 +1502,6 @@ def pattern_trials(pattern_type, pattern_id):
 
     return jsonify(matching_trials)
 
-
-@app.route('/api/test-animation')
-def test_animation():
-    """Diagnostic endpoint to test animation generation."""
-    import sys
-    import matplotlib
-
-    diagnostics = {
-        'python_version': sys.version,
-        'matplotlib_version': matplotlib.__version__,
-        'matplotlib_backend': matplotlib.get_backend(),
-        'data_loaded': df is not None,
-        'visualizer_exists': visualizer is not None,
-    }
-
-    if df is not None:
-        diagnostics['total_trials'] = len(df)
-        diagnostics['sample_participant'] = int(df['participant'].iloc[0])
-        diagnostics['sample_trial'] = int(df['trialN'].iloc[0])
-
-    # Try to generate a simple test animation
-    try:
-        if visualizer is not None and df is not None:
-            participant = int(df['participant'].iloc[0])
-            trial = int(df['trialN'].iloc[0])
-
-            print(
-                f"[TEST] Attempting to generate animation for participant {participant}, trial {trial}")
-
-            # Test generation
-            result = visualizer.generate_animation_html(participant, trial)
-
-            diagnostics['test_generation'] = 'Success' if result else 'Failed (returned None)'
-            diagnostics['result_path'] = result
-
-            print(f"[TEST] Result: {diagnostics['test_generation']}")
-        else:
-            diagnostics['test_generation'] = 'Skipped (no data)'
-    except Exception as e:
-        diagnostics['test_generation'] = f'Error: {str(e)}'
-        import traceback
-        diagnostics['traceback'] = traceback.format_exc()
-        print(f"[TEST] Exception: {str(e)}")
-        traceback.print_exc()
-
-    return jsonify(diagnostics)
 
 ##############################################################################
 ####### documentation####################################################
@@ -1533,10 +1693,248 @@ def behavioral_patterns():
     return render_template('behavioral_patterns.html')
 
 ###############################################################################
-##########Nikunj Prajapati - Card Sorting Behavioral Analysis (9 Analyses)####
-@app.route('/nikunj_analysis')
-def nikunj_analysis():
-    return render_template('nikunj.html')
+########### Behavioural Analysis — 9 statistical perspectives on Cards task #####
+@app.route('/behavioural-analysis')
+def behavioural_analysis():
+    return render_template('behavioural_analysis.html')
+
+
+# ---------------------------------------------------------------------------
+# CSV upload — re-process the behavioural dataset from a user-supplied file
+# ---------------------------------------------------------------------------
+@app.route('/behavioural-analysis/upload-dataset', methods=['POST'])
+def behavioural_upload_dataset():
+    """Accept a CardsDataset-style CSV and overwrite card_analysis_data.json.
+
+    Replaces the static JSON with a freshly-processed version derived from the
+    uploaded CSV. The behavioural Blueprint (analysis_types[6]) re-uses these
+    trials to derive all nine analyses on the next page load, so no
+    in-process invalidation is required. Writes are atomic to avoid serving a
+    half-written file if the request is interrupted.
+    """
+    if not ENABLE_DATASET_UPLOAD:
+        return jsonify({"error": "Dataset upload is disabled on this server."}), 403
+    if not _CSV_PIPELINE_AVAILABLE or process_csv_to_json is None:
+        return jsonify({"error": "Server is missing the process_dataset module."}), 503
+
+    upload = request.files.get('dataset')
+    if upload is None or not upload.filename:
+        return jsonify({
+            "error": "No CSV file uploaded. Pick a file via the upload widget (multipart field name 'dataset')."
+        }), 400
+
+    safe_filename = upload.filename.lower()
+    if not safe_filename.endswith('.csv'):
+        return jsonify({"error": "Only .csv files are accepted."}), 400
+
+    # Reject oversized requests before buffering the body.
+    max_size = app.config.get('MAX_CONTENT_LENGTH') or 32 * 1024 * 1024
+    if request.content_length is not None and request.content_length > max_size:
+        return jsonify({"error": "Upload too large for the configured limit."}), 413
+
+    tmp_path = None
+    tmp_dir = None
+    try:
+        tmp_dir = tempfile.mkdtemp(prefix="behavioural_upload_")
+        # Sanitise + cap filename so attackers can't pin disk with a 32 MB
+        # filename (still in the tempdir, never served).
+        original_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(upload.filename).name)[:120]
+        if not original_name.lower().endswith(".csv"):
+            original_name = original_name + ".csv"
+        tmp_path = os.path.join(tmp_dir, original_name)
+        upload.save(tmp_path)
+
+        payload = process_csv_to_json(tmp_path)
+        stats = payload.get("statistics", {}) or {}
+        if not stats.get("total_trials"):
+            return jsonify({"error": "No valid trials found in the uploaded CSV."}), 400
+
+        with dataset_lock:
+            atomic_write_json(_ANALYSIS_DATA_PATH, payload)
+
+            # Only overwrite the canonical CSV AFTER both processing and JSON write
+            # succeed — a bad CSV won't corrupt the running dataset.
+            shutil.copy2(tmp_path, _CSV_PATH)
+
+            # Reload the global df so other tabs pick up the new CSV immediately.
+            load_data()
+
+            # Regenerate the Blank Patterns Excel from the freshly loaded CSV so
+            # all tabs — including Blank Patterns — reflect the uploaded dataset.
+            regenerate_excel_from_csv(df)
+            load_blank_patterns_data()
+
+            # Invalidate all caches so the Blank Card Paradox page and
+            # pattern analysis recalculate from the new dataset on next load.
+            global _pattern_cache
+            _pattern_cache = {'success': None, 'failure': None}
+
+            return jsonify({
+                "ok": True,
+                "data_path": str(_ANALYSIS_DATA_PATH),
+                "statistics": stats,
+                "analysis_count": len(payload.get("analysis_types", [])),
+            })
+    except DatasetProcessingError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        # Surface enough context to debug env-level failures (stale
+        # __pycache__, partial pandas upgrade, etc.) WITHOUT leaking
+        # arbitrary filesystem layout to API consumers: scrub paths
+        # down to filenames, cap depth, and only suggest pandas reinstall
+        # when the error is actually pandas-related.
+        import traceback
+        tb_text_full = traceback.format_exc()
+        traceback.print_exc()  # always log full traceback server-side
+        # Scrub absolute paths in traceback lines: "File "X:/path/to/foo.py", ..."
+        # becomes "File "foo.py", ...". Keep server-side log unsanitized.
+        tb_text = re.sub(r'File ".*[\\/]', 'File "', tb_text_full)
+        tb_lines = tb_text.splitlines()[-15:]  # last 15 lines is plenty
+        exc_type = type(exc).__name__
+
+        # Friendly suggested action ONLY for pandas-related errors — a
+        # missing openpyxl or numpy should NOT be answered with
+        # "reinstall pandas".
+        hint = None
+        msg = str(exc)
+        if 'pandas' in msg.lower():
+            hint = (
+                "This looks like a pandas environment issue. "
+                "Try: pip install --force-reinstall pandas==2.1.4 "
+                "and restart the server."
+            )
+
+        response = {
+            "error": f"Processing failed: {exc}",
+            "exception_type": exc_type,
+            "exception_message": msg,
+            "traceback": tb_lines,
+            "diagnostics": {
+                "pandas_version": pd.__version__,
+                "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            }
+        }
+        if hint:
+            response["hint"] = hint
+        return jsonify(response), 500
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+        if tmp_dir and os.path.isdir(tmp_dir):
+            try:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Revert dataset — restore CardsDataset.csv + card_analysis_data.json
+# from their .orig.bak backups (created once at first startup).
+# ---------------------------------------------------------------------------
+@app.route('/behavioural-analysis/revert-dataset', methods=['POST'])
+def behavioural_revert_dataset():
+    if not ENABLE_DATASET_UPLOAD:
+        return jsonify({"error": "Dataset upload is disabled on this server."}), 403
+
+    with dataset_lock:
+        _base = _DATA_DIR
+        _shipped_dir = _base / '.shipped'
+        _stems = ('CardsDataset.csv', 'card_analysis_data.json',
+                  'task1_B_condition_positioned_blank_cards.xlsx')
+        restored = []
+
+        for stem in _stems:
+            target = _base / stem
+            # Prefer the bulletproof .shipped/ copy — never corrupted.
+            shipped = _shipped_dir / stem
+            if shipped.exists():
+                shutil.copy2(shipped, target)
+                restored.append(stem)
+                continue
+            # Fall back to .orig.bak for older deployments.
+            bak = _base / (stem + '.orig.bak')
+            if bak.exists():
+                shutil.copy2(bak, target)
+                restored.append(stem)
+
+        if not restored:
+            return jsonify({"error": "No backups found in data/.shipped/ or data/*.orig.bak . Ensure the app started at least once with the original dataset."}), 404
+
+        # Reload the global df from the restored CSV.
+        load_data()
+
+        # Regenerate the Excel so it matches the restored CSV (handles case where
+        # the uploaded CSV was a different dataset and the Excel drifted).
+        regenerate_excel_from_csv(df)
+        load_blank_patterns_data()
+
+        return jsonify({
+            "ok": True,
+            "restored": restored,
+            "message": f"Restored {len(restored)} file(s): {', '.join(restored)}. Reloading…",
+        })
+
+
+# ---------------------------------------------------------------------------
+# Dataset status — compare current data files against .orig.bak hashes so the
+# frontend badge knows whether the active dataset is original or custom.
+#
+# Only checks CSV + JSON (the authoritative data sources).  The Excel is a
+# derived file that gets regenerated on each upload; including it would
+# produce false "custom" flags whenever the hand-curated original Excel
+# (152 rows) differs from the auto-regenerated version (~357 rows).
+# ---------------------------------------------------------------------------
+@app.route('/behavioural-analysis/dataset-status', methods=['GET'])
+def behavioural_dataset_status():
+    """Return per-file custom status by comparing sha256 against .orig.bak."""
+    def _sha(path: Path) -> str | None:
+        try:
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+        except Exception:
+            return None
+
+    # Compare against .shipped/ first (bulletproof), fall back to .orig.bak.
+    _shipped_dir = _DATA_DIR / '.shipped'
+    stems = ('CardsDataset.csv', 'card_analysis_data.json')
+    files_status = {}
+    any_custom = False
+
+    for stem in stems:
+        live = _DATA_DIR / stem
+        ref = _shipped_dir / stem
+        if not ref.exists():
+            ref = _DATA_DIR / (stem + '.orig.bak')
+
+        live_hash = _sha(live) if live.exists() else None
+        ref_hash = _sha(ref) if ref.exists() else None
+
+        if live_hash is None:
+            files_status[stem] = 'missing'
+        elif ref_hash is None:
+            files_status[stem] = 'custom'
+            any_custom = True
+        elif live_hash != ref_hash:
+            files_status[stem] = 'custom'
+            any_custom = True
+        else:
+            files_status[stem] = 'original'
+
+    return jsonify({
+        'is_custom': any_custom,
+        'files': files_status,
+    })
+
+# ---------------------------------------------------------------------------
+# dataset_lock serialises the upload + revert handlers so two simultaneous
+# POSTs can't corrupt the data files. We no longer auto-revert on page load,
+# so uploaded datasets persist across navigation and refresh until the user
+# clicks "Revert to Original".
+# ---------------------------------------------------------------------------
+dataset_lock = threading.Lock()
+
 
 ###############################################################################
 # APPLICATION STARTUP - Load data when module is imported
@@ -1545,18 +1943,81 @@ def nikunj_analysis():
 print("=" * 60)
 print("Initializing Card Placement Analysis Application")
 print("=" * 60)
+
+# Sanity check pandas: a stale __pycache__ or partial upgrade can break
+# DataFrame.to_dict() even when import succeeds. Catch it at boot so the
+# FIRST upload doesn't fail with a mystery ModuleNotFoundError.
+try:
+    _pd_smoke = pd.DataFrame({"a": [1]}).to_dict("records")
+    assert _pd_smoke == [{"a": 1}], f"unexpected: {_pd_smoke}"
+    print(f"[OK] pandas {pd.__version__} sanity check passed")
+except Exception as _pd_err:
+    print(f"[ERROR] pandas sanity check FAILED: {_pd_err}")
+    print(f"[ERROR] pandas version: {pd.__version__}")
+    print(f"[ERROR] python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+    print("[ERROR] Likely cause: stale __pycache__ or partial pandas install.")
+    print("[ERROR] Try: pip install --force-reinstall pandas==2.1.4, then restart.")
+    # Don't crash — let the upload endpoint surface the same hint on first use.
+
 print("\nLoading dataset...")
 
 if not load_data():
-    print("\n✗ WARNING: Could not load dataset")
+    print("\n[WARN] Could not load dataset")
     print("Application will start but show error page")
     print("Please ensure CardsDataset.csv is in the data/ folder")
 else:
-    print(f"✓ Dataset loaded successfully")
+    print(f"[OK] Dataset loaded successfully")
     print(f"  - Total trials: {len(df)}")
     print(f"  - Participants: {df['participant'].nunique()}")
     print(
         f"  - Success rate: {(df['overall_correct'] == 1).mean() * 100:.1f}%")
+
+    # ── Shipped-originals directory ──────────────────────────────────
+    # data/.shipped/ is created ONCE (first server start) and is NEVER
+    # touched by uploads, reverts, or tests.  It is the bulletproof
+    # source-of-truth that the revert button always falls back on.
+    #
+    # We also maintain .orig.bak files alongside the live files for
+    # backwards-compatibility with older test suites and direct
+    # inspection, but they are regenerated from .shipped/ when missing.
+    # ─────────────────────────────────────────────────────────────────
+    _SHIPPED_DIR = _DATA_DIR / '.shipped'
+    _SHIPPED_DIR.mkdir(parents=True, exist_ok=True)
+
+    _STEMS = (
+        'CardsDataset.csv',
+        'card_analysis_data.json',
+        'task1_B_condition_positioned_blank_cards.xlsx',
+    )
+
+    _shipped_created = 0
+    for _stem in _STEMS:
+        _shipped_path = _SHIPPED_DIR / _stem
+        _live_path    = _DATA_DIR   / _stem
+        if not _shipped_path.exists():
+            if _live_path.exists():
+                # Safety check: don't ship a tiny CSV — that means the
+                # live file was already corrupted before the first start.
+                if _stem == 'CardsDataset.csv' and _live_path.stat().st_size < 50_000:
+                    print(f"  [WARN] {_stem} is only {_live_path.stat().st_size} bytes — "
+                          f"SKIPPING .shipped/ creation (file appears corrupted). "
+                          f"Please restore the original CSV manually.")
+                    continue
+                shutil.copy2(_live_path, _shipped_path)
+                _shipped_created += 1
+
+    if _shipped_created:
+        print(f"  [OK] Seeded data/.shipped/ with {_shipped_created} file(s)")
+
+    # Regenerate .orig.bak from .shipped/ on every boot so the revert
+    # always has a correct secondary fallback (in case .shipped/ is
+    # accidentally deleted).  .shipped/ is the canonical source.
+    for _stem in _STEMS:
+        _bak_path     = _DATA_DIR / (_stem + '.orig.bak')
+        _shipped_path = _SHIPPED_DIR / _stem
+        if _shipped_path.exists():
+            shutil.copy2(_shipped_path, _bak_path)
+    print(f"  [OK] Regenerated .orig.bak files from data/.shipped/")
 
 print("=" * 60)
 

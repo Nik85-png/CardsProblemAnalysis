@@ -261,3 +261,72 @@ button:hover {
         grid-template-columns: 1fr auto;
     }
 }
+
+
+/* === Dark mode === */
+[data-theme="dark"] {
+    --theme-light: #111416;
+    --text: #f2efe8;
+    --muted: color-mix(in srgb, #f2efe8 60%, transparent);
+    --rule: color-mix(in srgb, #f2efe8 18%, transparent);
+    --panel: color-mix(in srgb, #1a1d21 84%, #0c0e10 16%);
+}
+[data-theme="dark"] body {
+    background: #0D1117;
+    color: var(--text);
+}
+[data-theme="dark"] .container {
+    border-color: var(--rule);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--theme-primary) 8%, transparent), transparent 42%), var(--panel);
+}
+[data-theme="dark"] .card {
+    background: var(--panel);
+    border-color: var(--rule);
+}
+[data-theme="dark"] button {
+    color: var(--text);
+}
+[data-theme="dark"] button:hover,
+[data-theme="dark"] button.active,
+[data-theme="dark"] button.primary {
+    background: var(--text);
+    color: var(--theme-light);
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select {
+    background: color-mix(in srgb, #1a1d21 90%, #2a2d31 10%);
+    border-color: var(--rule);
+    color: var(--text);
+}
+[data-theme="dark"] .board-wrap {
+    background: linear-gradient(135deg, #052e29, #0a4f47);
+}
+[data-theme="dark"] .cell.slot {
+    background: color-mix(in srgb, white 10%, transparent);
+    border-color: color-mix(in srgb, white 26%, transparent);
+    color: color-mix(in srgb, white 68%, transparent);
+}
+[data-theme="dark"] .cell.slot.filled {
+    background: #fff;
+    color: #111;
+}
+[data-theme="dark"] .cell.slot.filled.blank {
+    background: #9CA3AF;
+    color: #fff;
+}
+[data-theme="dark"] .cell.head {
+    background: color-mix(in srgb, white 18%, transparent);
+}
+[data-theme="dark"] .outcome-success { color: #34d399; }
+[data-theme="dark"] .outcome-fail { color: #f87171; }
+[data-theme="dark"] .muted { color: var(--muted); }
+[data-theme="dark"] label { color: var(--muted); }
+[data-theme="dark"] .tab { color: var(--text); }
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .tab:hover {
+    background: var(--text);
+    color: var(--theme-light);
+}
+[data-theme="dark"] .participant-compare {
+    border-top-color: var(--rule);
+}

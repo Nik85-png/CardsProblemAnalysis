@@ -6,7 +6,7 @@
     <title>Card Sorting Analysis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('behavioral.static', filename='css/styles.css') }}" />
 </head>
@@ -273,6 +273,37 @@
     <script>
       window.BEHAVIORAL_API_BASE = "{{ url_for('behavioral.index') }}".replace(/\/$/, '');
     </script>
+
+    <!-- Theme sync: forward theme changes to the playground iframe -->
+    <script>
+    (function() {
+        var pf = document.getElementById('playgroundFrame');
+        function getTheme() {
+            return document.documentElement.getAttribute('data-theme') || 'light';
+        }
+        function sendTheme() {
+            try {
+                if (pf && pf.contentWindow) {
+                    pf.contentWindow.postMessage({ type: 'card-theme', value: getTheme() }, '*');
+                }
+            } catch(_) {}
+        }
+        // Send on iframe load
+        if (pf) {
+            pf.addEventListener('load', sendTheme);
+            // Also try immediately for cached iframes
+            if (pf.contentWindow) sendTheme();
+        }
+        // Watch for theme changes on this document
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(m) {
+                if (m.attributeName === 'data-theme') sendTheme();
+            });
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    })();
+    </script>
+
     <script src="{{ url_for('behavioral.static', filename='js/app.js') }}"></script>
 </body>
 </html>

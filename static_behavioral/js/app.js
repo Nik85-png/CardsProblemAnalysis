@@ -1,3 +1,29 @@
+/* === Theme bridge — syncs with parent page via shared localStorage + postMessage === */
+(function() {
+    try {
+        var THEME_KEY = 'app-theme';
+
+        // Listen for parent page theme changes via postMessage
+        window.addEventListener('message', function(e) {
+            var data = e.data || {};
+            if (!data || data.type !== 'card-theme') return;
+            var value = data.value === 'dark' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', value);
+            try { localStorage.setItem(THEME_KEY, value); } catch (_) {}
+        });
+
+        // Initial sync: read from the SAME localStorage key the parent uses
+        var stored = null;
+        try { stored = localStorage.getItem(THEME_KEY); } catch (_) {}
+        if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            stored = 'dark';
+        }
+        if (stored === 'dark' || stored === 'light') {
+            document.documentElement.setAttribute('data-theme', stored);
+        }
+    } catch (_) {}
+})();
+
 const API_BASE = window.BEHAVIORAL_API_BASE || '';
 const analysisDefinitions = {
     1: { title: 'Successful Clean Patterns (Many Moves)', explanation: 'Successful participants with many exploratory moves while keeping structure.' },
