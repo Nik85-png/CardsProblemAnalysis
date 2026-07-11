@@ -14,3 +14,8 @@ INTEGRATION_NOTES/
 
 Thumbs.db
 play_sessions.db
+
+# Regenerated at boot from data/.shipped/ — never commit
+data/*.orig.bak
+# Test-suite backup artifacts
+data/*.test_bak
