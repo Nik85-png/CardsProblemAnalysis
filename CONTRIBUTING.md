@@ -1,4 +1,4 @@
-# Contributing to Card Placement Analysis
+# Contributing to Cards Problem Analysis
 
 Thank you for considering contributing to this project! 🎉
 
@@ -36,8 +36,8 @@ Feature requests are welcome! Please provide:
 
 ```bash
 # Clone your fork
-git clone https://github.com/your-username/flask_card_analysis.git
-cd flask_card_analysis
+git clone https://github.com/your-username/CardsProblemAnalysis.git
+cd CardsProblemAnalysis
 
 # Create virtual environment
 python -m venv venv
@@ -72,7 +72,13 @@ python app.py
 
 ## Testing
 
-Before submitting:
+Run the unit suite before submitting (Python 3.10+):
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Manual checklist:
 
 - [ ] Code runs without errors
 - [ ] All features work as expected

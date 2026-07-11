@@ -2,7 +2,7 @@
 
 A comprehensive web application for analyzing card sorting behavior across experimental conditions with interactive visualizations, behavioral pattern analysis, hint-effect analysis, and animated trial playback.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![Flask](https://img.shields.io/badge/flask-3.0.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -35,6 +35,18 @@ A comprehensive web application for analyzing card sorting behavior across exper
 - Move-by-move grid replay with speed controls
 - Analysis tabs: Clean Patterns, Failed Patterns, All Successful, Progression, Opening Strategies, Repeated Attempts, Extremes, Speed, Repetition
 
+### 📤 Dataset Upload & Revert
+- Upload a new `CardsDataset.csv` directly from the Behavioural Analysis page (no manual file copy required)
+- The CSV is validated and converted to `data/card_analysis_data.json` by `process_dataset.py`, then written atomically
+- Original shipped data is preserved (`.orig.bak` backups + `data/.shipped/` fallback), so a one-click **Revert** restores the baseline dataset
+- Live dataset status endpoint reports whether custom or shipped data is active
+
+### 🎮 Play / Discover (Interactive Game)
+- Guess-the-card game where users attempt their own card arrangement
+- Move-by-move session tracking persisted to SQLite (`play_sessions.db`)
+- Compare your attempt against a real participant's trial
+- Session history and animated **GIF export** of a play session
+
 ### 🎨 Card Visual Design (Unified)
 All grids use a consistent playing-card design:
 - **White card face** (#ffffff) with subtle border (`1px solid #d0d0d0`) and drop shadow
@@ -55,7 +67,7 @@ All grids use a consistent playing-card design:
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10+ (the code uses `X | None` type syntax; `runtime.txt` pins 3.11.9)
 - pip
 
 ### Installation
@@ -73,14 +85,15 @@ venv\Scripts\activate   # Windows
 # Install dependencies
 pip install -r requirements.txt
 
-# Add your dataset
-cp /path/to/your/CardsDataset.csv data/
-
-# Run
+# Run (a sample CardsDataset.csv already ships in data/)
 python app.py
 ```
 
 Visit **http://localhost:5000**
+
+> To analyze your own data, either replace `data/CardsDataset.csv` and run
+> `python process_dataset.py data/CardsDataset.csv data/card_analysis_data.json`,
+> or upload it in-app from the **Behavioural Analysis** page (see below).
 
 ---
 
@@ -147,12 +160,24 @@ CardsProblemAnalysis/
 │       └── play.js
 │
 ├── data/
-│   ├── CardsDataset.csv
-│   ├── card_analysis_data.json
-│   └── task1_B_condition_positioned_blank_cards.xlsx
+│   ├── CardsDataset.csv                  # active dataset
+│   ├── card_analysis_data.json           # generated analysis payload
+│   ├── task1_B_condition_positioned_blank_cards.xlsx
+│   ├── *.orig.bak                        # backups (dataset revert)
+│   └── .shipped/                         # baseline copy for revert
 │
-├── test_datasets/
-└── tests/
+├── play_sessions.db                      # SQLite (Play/Discover sessions)
+│
+├── test_datasets/                        # sample CSVs + generators
+│   ├── test_small.csv
+│   ├── test_b_conditions.csv
+│   ├── generate.py
+│   └── verify.py
+│
+└── tests/                                # pytest suite (21 tests)
+    ├── test_pipeline.py
+    ├── test_atomic_write.py
+    └── test_upload_revert.py
 ```
 
 ---
@@ -169,16 +194,25 @@ CardsProblemAnalysis/
 
 ---
 
-## 📚 API Endpoints
+## 📚 Routes & API Endpoints
+
+### Pages
 
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/` | Dashboard homepage |
 | GET | `/explorer` | Trial explorer |
 | GET | `/patterns` | Pattern analysis |
-| GET | `/behavioral-patterns` | Behavioral patterns analysis |
+| GET | `/behavioral_patterns` | Behavioral patterns analysis |
 | GET | `/blank-patterns` | Hint effects / blank cards analysis |
-| GET | `/behavioral-play` | Behavioral play page |
+| GET | `/blank-card-paradox` | Blank card paradox viewer |
+| GET | `/behavioural-analysis` | Embedded behavioural analysis (iframe) |
+| GET | `/powerbi` | Power BI embed page |
+
+### Trial & pattern APIs
+
+| Method | Route | Description |
+|--------|-------|-------------|
 | GET | `/api/get-trials/<participant>` | Get all trials for a participant |
 | GET | `/api/trial-info/<participant>/<trial>` | Detailed trial information |
 | GET | `/api/animation-info/<participant>/<trial>` | Animation metadata (total frames, trial info) |
@@ -188,6 +222,36 @@ CardsProblemAnalysis/
 | GET | `/api/analyze-patterns/<type>` | Pattern analysis data |
 | GET | `/api/pattern-image/<type>/<id>` | Pattern visualization |
 | GET | `/api/pattern-trials/<type>/<id>` | Trials matching a pattern |
+| GET | `/api/bcp/summary` · `/participants` · `/viewer-data` | Blank-card-paradox data feeds |
+| GET | `/api/blank-patterns/…` | Blank-pattern options, patterns, trials, plot-data, and documentation table/download |
+
+### Dataset upload / revert
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/behavioural-analysis/upload-dataset` | Upload & process a new `CardsDataset.csv` |
+| POST | `/behavioural-analysis/revert-dataset` | Restore the original shipped dataset |
+| GET | `/behavioural-analysis/dataset-status` | Report whether custom or shipped data is active |
+
+### Behavioural blueprint
+
+Mounted under `/behavioral-app` (see `behavioral_app.py`): serves the embedded app, the analysis JSON/statistics APIs, and the Play/Discover session endpoints (`/api/play/session/…`, `/api/play/export/gif`, `/health`).
+
+---
+
+## 🧪 Testing
+
+The `tests/` directory contains the unit suite (21 tests, `unittest`-based)
+covering the CSV→JSON pipeline (`process_dataset.py`), atomic JSON writes, and
+the dataset upload/revert safety logic. Run it with Python 3.10+ and the project
+dependencies installed:
+
+```bash
+python -m unittest discover -s tests -v   # run all tests
+python tests/test_pipeline.py             # run a single file
+```
+
+Sample fixtures live in `test_datasets/`.
 
 ---
 
@@ -217,7 +281,7 @@ Typography: Space Grotesk & Inter (Google Fonts).
 
 ## 🔄 What's New — July 2026 Update
 
-*This section captures the changes made in this working session. The repo has no prior local commit history, so this is the current final-state summary rather than a diff against an earlier commit.*
+*This section summarizes the theme, design, and UI work from the July 2026 update. See `git log` for the full commit history.*
 
 ### 🌗 Theme & Dark Mode
 - **Iframe theme sync fixed** — Behavioral analysis iframe now shares the parent page's theme via `localStorage['app-theme']` and receives real-time updates through `postMessage` with a `MutationObserver` bridge. No more "stuck in dark mode" issues.
@@ -274,8 +338,8 @@ README.md
 ```
 
 ### 🧹 Cleanup
-- Removed the disposable `.design-baseline/` snapshot and the backup copies under `data/` so only the canonical project files remain.
-- Added ignore rules for `.design-baseline/`, `*.test_bak`, and the Windows-only `nul` placeholder so future exports stay clean.
+- Removed the disposable `.design-baseline/` snapshot so only the canonical project files remain.
+- Note: `data/` intentionally retains `.orig.bak` backups and a `data/.shipped/` copy of the baseline dataset — these power the one-click dataset **Revert** feature and are committed on purpose.
 
 ### ⚠️ Notes
 - Behavioral Patterns SVG renderer was intentionally **not converted to HTML** cards — too risky for limited visual gain (visually already matches the reference).

@@ -32,19 +32,33 @@ Each movement string follows the pattern: `"card_suit_position"`
 
 ## Adding Your Dataset
 
+**Option A — In-app upload (recommended):** From the **Behavioural Analysis**
+page, use the upload widget to submit a new `CardsDataset.csv`. It is validated,
+converted, and written automatically, and can be reverted with one click.
+
+**Option B — Manual copy:**
+
 ```bash
 # Copy your file to this folder
 cp /path/to/your/CardsDataset.csv ./
 
 # Or on Windows
 copy C:\path\to\your\CardsDataset.csv .
+
+# Then regenerate the analysis JSON
+python process_dataset.py data/CardsDataset.csv data/card_analysis_data.json
 ```
 
-## Security Note
+## Data & Version Control
 
-⚠️ **Important:** This folder is excluded from Git by default (see `.gitignore`)
+⚠️ **Note:** This folder **is** currently tracked in Git. The repository ships a
+sample `CardsDataset.csv`, the generated `card_analysis_data.json`, `.orig.bak`
+backups, and a `.shipped/` baseline copy (the backups and `.shipped/` power the
+in-app dataset **Revert** feature).
 
-The dataset likely contains sensitive research data and should not be committed to version control.
+If your dataset contains sensitive research data that should not be committed,
+add `data/CardsDataset.csv` (and the generated JSON) to `.gitignore` before
+adding your own data.
 
 ## File Size
 
