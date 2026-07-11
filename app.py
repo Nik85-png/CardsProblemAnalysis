@@ -5,6 +5,8 @@ Main Application File
 Place this file as 'app.py' in your flask_card_analysis folder.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import hashlib

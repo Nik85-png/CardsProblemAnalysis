@@ -72,7 +72,7 @@ python app.py
 
 ## Testing
 
-Run the unit suite before submitting (Python 3.10+):
+Run the unit suite before submitting:
 
 ```bash
 python -m unittest discover -s tests -v

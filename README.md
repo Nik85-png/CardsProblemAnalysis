@@ -2,7 +2,7 @@
 
 A comprehensive web application for analyzing card sorting behavior across experimental conditions with interactive visualizations, behavioral pattern analysis, hint-effect analysis, and animated trial playback.
 
-![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![Flask](https://img.shields.io/badge/flask-3.0.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -67,7 +67,7 @@ All grids use a consistent playing-card design:
 
 ### Prerequisites
 
-- Python 3.10+ (the code uses `X | None` type syntax; `runtime.txt` pins 3.11.9)
+- Python 3.9+ (`runtime.txt` pins 3.11.9 for deployment)
 - pip
 
 ### Installation
@@ -243,8 +243,8 @@ Mounted under `/behavioral-app` (see `behavioral_app.py`): serves the embedded a
 
 The `tests/` directory contains the unit suite (21 tests, `unittest`-based)
 covering the CSV→JSON pipeline (`process_dataset.py`), atomic JSON writes, and
-the dataset upload/revert safety logic. Run it with Python 3.10+ and the project
-dependencies installed:
+the dataset upload/revert safety logic. Run it with the project dependencies
+installed:
 
 ```bash
 python -m unittest discover -s tests -v   # run all tests
