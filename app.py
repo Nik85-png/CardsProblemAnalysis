@@ -5,7 +5,6 @@ Main Application File
 Place this file as 'app.py' in your flask_card_analysis folder.
 """
 
-import json
 import os
 import sys
 import hashlib
@@ -16,7 +15,6 @@ from pathlib import Path
 import re
 import ast
 from collections import Counter
-import base64
 import io
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -492,8 +490,6 @@ def get_pattern_counter(pattern_type):
     Get pattern counter with caching to avoid recomputing.
     Returns Counter object with all patterns.
     """
-    global _pattern_cache
-
     # Check cache
     if _pattern_cache[pattern_type] is not None:
         return _pattern_cache[pattern_type]
@@ -1315,15 +1311,9 @@ def trial_image(participant, trial_n):
     return send_file(img_bytes, mimetype='image/png')
 
 
-def trial_image(participant, trial_n):
-    """Get static image of trial's final state."""
-    img_bytes = visualizer.generate_static_image(participant, trial_n)
-
-
 @app.route('/api/trial-grid/<int:participant>/<int:trial_n>')
 def trial_grid(participant, trial_n):
     """Get trial grid data as JSON for client-side HTML card rendering."""
-    import pandas as pd
     import numpy as np
 
     if df is None:
@@ -1334,8 +1324,9 @@ def trial_grid(participant, trial_n):
         return jsonify({'error': 'Trial not found'}), 404
 
     row = trial_data.iloc[0]
-    movements_raw = row.get('movement_codes', []) or []
-    movements = _parse_movement_codes(movements_raw)
+    # movement_codes is already parsed into a list by load_data()
+    # (safe_literal_eval + clean_card_positions), so use it directly.
+    movements = row.get('movement_codes', []) or []
 
     grid = visualizer.create_grid_state(movements, len(movements))
     final_positions = row.get('final_card_position_codes_1', [])
@@ -1966,7 +1957,7 @@ if not load_data():
     print("Application will start but show error page")
     print("Please ensure CardsDataset.csv is in the data/ folder")
 else:
-    print(f"[OK] Dataset loaded successfully")
+    print("[OK] Dataset loaded successfully")
     print(f"  - Total trials: {len(df)}")
     print(f"  - Participants: {df['participant'].nunique()}")
     print(
@@ -2017,7 +2008,7 @@ else:
         _shipped_path = _SHIPPED_DIR / _stem
         if _shipped_path.exists():
             shutil.copy2(_shipped_path, _bak_path)
-    print(f"  [OK] Regenerated .orig.bak files from data/.shipped/")
+    print("  [OK] Regenerated .orig.bak files from data/.shipped/")
 
 print("=" * 60)
 

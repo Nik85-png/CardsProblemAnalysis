@@ -379,7 +379,6 @@ def _derive_analysis(raw, analysis_id):
     base.update(ANALYSIS_DEFINITIONS.get(analysis_id, {}))
 
     all_raw = _source_trials(raw)
-    non_empty = _dedupe_trials(all_raw)
     valid_raw = [t for t in all_raw if int(t.get("move_count") or 0) >= MIN_VALID_MOVES]
     valid = _dedupe_trials(valid_raw)
     success = [t for t in valid if t.get("outcome") == "success"]

@@ -30,7 +30,6 @@ import ast
 import json
 import os
 import re
-import shutil
 import tempfile
 from pathlib import Path
 from statistics import mean
