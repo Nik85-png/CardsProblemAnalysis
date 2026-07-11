@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Cards analysis">
+  <!-- Card face -->
+  <rect x="2.5" y="2" width="27" height="28" rx="4" ry="4"
+        fill="#ffffff" stroke="#c9c9c9" stroke-width="1"/>
+  <!-- Spade (King's suit) -->
+  <path d="M16 5
+           C16 5 7 12.5 7 18.8
+           C7 22 9.2 24 11.8 24
+           C13.2 24 14.4 23.3 15.2 22.2
+           C15.2 24.4 14.4 26.4 12 27.5
+           L20 27.5
+           C17.6 26.4 16.8 24.4 16.8 22.2
+           C17.6 23.3 18.8 24 20.2 24
+           C22.8 24 25 22 25 18.8
+           C25 12.5 16 5 16 5 Z"
+        fill="#141414"/>
+</svg>
