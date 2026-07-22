@@ -1,113 +1,243 @@
 {% extends "base.html" %}
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/behavioral_patterns.css') }}">
-{% endblock %}
 
 {% block title %}Behavioral Patterns Analysis - Cards Problem Study{% endblock %}
 
-{% block content %}
-<div class="page-container">
-    <div class="page-header">
-        <h1>Behavioral Patterns Analysis (Grid Patterns)</h1>
-    </div>
-    <!-- GRID VIEWER -->
-    <div id="pg-gridview" class="pg on">
-    <div class="ph"><h2>Grid Viewer</h2><p>Each condition shows ONLY its own exclusive participants · no overlap</p></div>
-    <div class="tabs" id="gv-tabs">
-        <div class="tab on" onclick="gvTab(this,'KQJB')">KQJB — 58 participants</div>
-        <div class="tab" onclick="gvTab(this,'KQJ')">KQJ — 53 participants</div>
-        <div class="tab" onclick="gvTab(this,'KQB')">KQB — 61 participants</div>
-        <div class="tab" onclick="gvTab(this,'KQ')">KQ — 55 participants</div>
-    </div>
-    <div class="card">
-        <div class="ch"><div class="ct" id="gv-cond-l">KQJB — 58 exclusive participants</div></div>
-        <div class="cr">
-        <div class="cg"><div class="cl">Outcome filter</div><select id="gv-filt" onchange="gvPop()"><option value="all">All participants</option><option value="win">Successful only</option><option value="fail">Unsuccessful only</option></select></div>
-        <div class="cg"><div class="cl">Participant</div><select id="gv-pid" onchange="gvLoadT()"></select></div>
-        <div class="cg"><div class="cl">Trial</div><select id="gv-trial" onchange="gvRender()"></select></div>
-        </div>
-        <div class="gv-wrap">
-        <div>
-            <div class="gv-box"><svg id="gv-svg" width="400" height="400" viewBox="0 0 400 400" style="display:block"></svg></div>
-            <div class="gv-out fail" id="gv-lbl">—</div>
-        </div>
-        <div>
-            <div class="cl" style="margin-bottom:7px">All trials · click to jump</div>
-            <div class="tstrip" id="gv-strip"></div>
-            <div class="note" style="margin-top:8px">Gold outline = successful trial. Blank cards shown in white. Mini-grids show final card positions per trial.</div>
-        </div>
-        </div>
-    </div>
-    <div class="card">
-        <div class="ch"><div class="ct" id="gv-plist-l">Participant list — KQJB</div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="background:var(--s2);border:1px solid rgba(46,204,138,.15);border-radius:8px;padding:12px">
-            <div style="font-family:var(--fm);font-size:9px;color:var(--grn);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">✓ Successful — click to view</div>
-            <div class="pid-wrap" id="gv-succ"></div>
-        </div>
-        <div style="background:var(--s2);border:1px solid rgba(255,107,107,.15);border-radius:8px;padding:12px">
-            <div style="font-family:var(--fm);font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">✗ Unsuccessful — click to view</div>
-            <div class="pid-wrap" id="gv-fail"></div>
-        </div>
-        </div>
-    </div>
-    </div>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/behavioral_patterns_v7.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/v7_dark_mode.css') }}">
+<style>
+    /* Remove main container constraints so dashboard content is full-width */
+    main.container { max-width: none; padding: 0; }
 
-    <!-- GRID COMPARISON — THE KEY PAGE -->
-    <div id="pg-gridcompare" class="pg on">
-    <div class="ph"><h2>Grid Comparison</h2><p>Left = unsuccessful participant trials · Right = successful participant trials up to first solution · matching your Colab analysis</p></div>
-    <div class="tabs" id="gc-tabs">
-        <div class="tab on" onclick="gcTab(this,'KQJB')">KQJB</div>
-        <div class="tab" onclick="gcTab(this,'KQJ')">KQJ</div>
-        <div class="tab" onclick="gcTab(this,'KQB')">KQB</div>
-        <div class="tab" onclick="gcTab(this,'KQ')">KQ</div>
-    </div>
-    <div class="card" style="margin-bottom:13px">
-        <div class="ch">
-        <div class="ct" id="gc-info">Comparing pair 1 of available pairs — KQJB</div>
-        <div style="display:flex;gap:8px;align-items:center">
-            <button class="cmp-nav-btn" id="gc-prev" onclick="gcNav(-1)">← Prev pair</button>
-            <span class="cmp-pair-info" id="gc-pair-num">1 / N</span>
-            <button class="cmp-nav-btn" id="gc-next" onclick="gcNav(1)">Next pair →</button>
-        </div>
-        </div>
-        <div class="cmp-headers">
-        <div class="cmp-hdr fail" id="gc-fail-hdr">✗ Unsuccessful Participant —</div>
-        <div class="cmp-hdr win" id="gc-win-hdr">✓ Successful Participant — trials up to first solution</div>
-        </div>
-        <div class="cmp-pair-row" id="gc-pair-display"></div>
-    </div>
-    <div class="card">
-        <div class="ch"><div class="ct">What the comparison reveals</div></div>
-        <div class="g2">
-        <div>
-            <div style="font-family:var(--fm);font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Failed trial patterns</div>
-            <div style="font-family:var(--fm);font-size:11px;color:var(--m1);line-height:2">
-            · Cards scattered across full 8×8 board<br>
-            · No coherent row or column structure<br>
-            · Off-grid placements common<br>
-            · Same cards repositioned repeatedly<br>
-            · No convergence to a sub-grid region
-            </div>
-        </div>
-        <div>
-            <div style="font-family:var(--fm);font-size:9px;color:var(--grn);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Successful trial patterns</div>
-            <div style="font-family:var(--fm);font-size:11px;color:var(--m1);line-height:2">
-            · Cards clustered in top-left sub-grid<br>
-            · Clear row and column structure visible<br>
-            · Each card type exactly once per row/col<br>
-            · Fewer total moves — decisive placement<br>
-            · Gold border = completed valid solution
-            </div>
-        </div>
-        </div>
-    </div>
-    </div>
-</div>
+    /* Section picker — styled as distinct toggle buttons, NOT a navbar */
+    .topnav {
+        position: relative; height: auto; z-index: 50;
+        background: transparent; border-bottom: none;
+        padding: 1.25rem 0 0.5rem; box-shadow: none; backdrop-filter: none;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .topnav .brand { display: none; }
+    .topnav .navlinks {
+        display: inline-flex; gap: 6px; flex-wrap: wrap; overflow-x: auto;
+        flex: 0 1 auto; padding: 0;
+        scrollbar-width: none;
+        background: #f1f5f9; border-radius: 10px; padding: 4px;
+        border: 1px solid #e2e8f0;
+    }
+    .topnav .navlinks::-webkit-scrollbar { display: none; }
+    .topnav .navlink {
+        font-size: 0.85rem; padding: 0.55rem 1.4rem; border-radius: 7px;
+        color: #475569; font-weight: 600;
+        letter-spacing: 0.01em;
+        transition: all 200ms ease;
+        cursor: pointer;
+    }
+    .topnav .navlink:hover { color: #0f172a; background: rgba(255,255,255,0.7); }
+    .topnav .navlink.on {
+        color: #fff; background: #4f46e5;
+        box-shadow: 0 2px 8px rgba(79,70,229,0.3), 0 1px 2px rgba(79,70,229,0.15);
+    }
+
+
+    [data-theme="dark"] .topnav .navlinks {
+        background: #1e293b; border-color: #334155;
+    }
+    [data-theme="dark"] .topnav .navlink { color: #94a3b8; }
+    [data-theme="dark"] .topnav .navlink:hover { color: #f1f5f9; background: rgba(255,255,255,0.05); }
+    [data-theme="dark"] .topnav .navlink.on {
+        color: #fff; background: #6366f1;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+    }
+
+
+    /* Dashboard page content */
+    .page { margin-top: 0; }
+
+    /* Loading overlay */
+    #loadingOverlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #fff; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 16px;
+        transition: opacity 0.3s ease;
+    }
+    #loadingOverlay.lo-hide { opacity: 0; pointer-events: none; }
+    .lo-spin {
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 3px solid #e5e7eb; border-top-color: #0f172a;
+        animation: lo-rotate 0.7s linear infinite;
+    }
+    @keyframes lo-rotate { to { transform: rotate(360deg); } }
+    .lo-text { font-size: 0.85rem; color: #64748b; font-weight: 500; }
+    [data-theme="dark"] #loadingOverlay { background: #0f172a; }
+    [data-theme="dark"] .lo-spin { border-color: #334155; border-top-color: #f1f5f9; }
+    [data-theme="dark"] .lo-text { color: #94a3b8; }
+
+
+
+    /* === Section heading visibility fixes — scoped under #mainViews for specificity === */
+    #mainViews .section-eyebrow {
+        font-size: 0.72rem; letter-spacing: 0.14em;
+        color: #4f46e5; font-weight: 700;
+        background: rgba(79,70,229,0.08); padding: 0.25rem 0.75rem;
+        border-radius: 4px; display: inline-block; margin-bottom: 0.75rem;
+    }
+    #mainViews .section-title {
+        font-size: 2rem; font-weight: 700;
+        color: #0f172a; letter-spacing: -0.025em;
+        line-height: 1.15;
+    }
+    #mainViews .section-title em { color: #4f46e5; font-weight: 700; }
+    #mainViews .section-desc {
+        font-size: 1rem; color: #475569;
+        line-height: 1.65;
+    }
+    #mainViews .ph h2 {
+        font-size: 1.35rem; font-weight: 700;
+        color: #0f172a; letter-spacing: -0.02em;
+    }
+    #mainViews .ph p {
+        font-size: 0.78rem; color: #64748b;
+    }
+    #mainViews .hero-thesis {
+        font-size: 2.5rem; font-weight: 600;
+        color: #0f172a; line-height: 1.12;
+    }
+    #mainViews .hero-thesis em { color: #4f46e5; }
+    #mainViews .hero-eyebrow {
+        font-size: 0.72rem; font-weight: 700;
+        color: #4f46e5;
+    }
+    #mainViews .hero-sub {
+        font-size: 1.05rem; color: #475569;
+    }
+
+    /* Dark mode — also scoped */
+    [data-theme="dark"] #mainViews .section-eyebrow { color: #818cf8; background: rgba(129,140,248,0.12); }
+    [data-theme="dark"] #mainViews .section-title { color: #f1f5f9; }
+    [data-theme="dark"] #mainViews .section-title em { color: #818cf8; }
+    [data-theme="dark"] #mainViews .section-desc { color: #94a3b8; }
+    [data-theme="dark"] #mainViews .ph h2 { color: #f1f5f9; }
+    [data-theme="dark"] #mainViews .ph p { color: #94a3b8; }
+    [data-theme="dark"] #mainViews .hero-thesis { color: #f1f5f9; }
+    [data-theme="dark"] #mainViews .hero-thesis em { color: #818cf8; }
+    [data-theme="dark"] #mainViews .hero-eyebrow { color: #818cf8; }
+    [data-theme="dark"] #mainViews .hero-sub { color: #94a3b8; }
+
+    /* Tab description text */
+    .beh-tab-desc {
+        margin-top: 0.75rem;
+        font-size: 0.88rem;
+        color: #64748b;
+        line-height: 1.6;
+        max-width: 800px;
+        font-style: italic;
+        padding: 0.6rem 0;
+        border-left: 3px solid #e2e8f0;
+        padding-left: 1rem;
+    }
+    [data-theme="dark"] .beh-tab-desc {
+        color: #94a3b8;
+        border-left-color: #334155;
+    }
+
+    /* === Trial Analysis sub-tabs — prominent, visually distinct pills === */
+    .tabrow {
+        display: flex !important;
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e8ecf4 100%) !important;
+        border-radius: 12px !important;
+        padding: 6px !important;
+        border: 1.5px solid #d1d5db !important;
+        margin-top: 16px !important;
+        box-shadow: 0 2px 8px rgba(15,23,42,0.06) !important;
+    }
+    .tabbtn {
+        font-family: 'IBM Plex Mono', 'Fira Code', monospace !important;
+        font-size: 0.8rem !important;
+        padding: 0.55rem 1.1rem !important;
+        background: transparent !important;
+        border: 1.5px solid transparent !important;
+        color: #475569 !important;
+        cursor: pointer !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 200ms ease !important;
+        white-space: nowrap !important;
+        letter-spacing: 0.01em !important;
+        position: relative !important;
+    }
+    .tabbtn:hover {
+        color: #1e293b !important;
+        background: rgba(255,255,255,0.85) !important;
+        border-color: #c7d2fe !important;
+        box-shadow: 0 1px 4px rgba(79,70,229,0.08) !important;
+    }
+    .tabbtn.on {
+        background: #ffffff !important;
+        color: #4338ca !important;
+        font-weight: 700 !important;
+        border: 1.5px solid #a5b4fc !important;
+        box-shadow: 0 2px 8px rgba(79,70,229,0.15), 0 1px 2px rgba(0,0,0,0.06) !important;
+    }
+    .tabbtn.on::before {
+        content: '' !important;
+        position: absolute !important;
+        bottom: -1px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 60% !important;
+        height: 2.5px !important;
+        background: linear-gradient(90deg, #4f46e5, #7c3aed) !important;
+        border-radius: 2px !important;
+    }
+    [data-theme="dark"] .tabrow {
+        background: linear-gradient(135deg, #1e293b 0%, #1a2332 100%) !important;
+        border-color: #475569 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+    }
+    [data-theme="dark"] .tabbtn {
+        color: #94a3b8 !important;
+        border-color: transparent !important;
+    }
+    [data-theme="dark"] .tabbtn:hover {
+        color: #e2e8f0 !important;
+        background: rgba(255,255,255,0.06) !important;
+        border-color: #475569 !important;
+    }
+    [data-theme="dark"] .tabbtn.on {
+        background: #334155 !important;
+        color: #a5b4fc !important;
+        border: 1.5px solid #6366f1 !important;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.2), 0 1px 2px rgba(0,0,0,0.15) !important;
+    }
+    [data-theme="dark"] .tabbtn.on::before {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6) !important;
+    }
+
+    /* Responsive — hero-thesis scales down on mobile */
+    @media (max-width: 980px) {
+        #mainViews .hero-thesis { font-size: 1.75rem; }
+        #mainViews .section-title { font-size: 1.5rem; }
+    }
+</style>
 {% endblock %}
-{% block scripts %}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+{% block content %}
+<div id="loadingOverlay">
+    <div class="lo-spin"></div>
+    <div class="lo-text">Loading dataset...</div>
+</div>
 
-<script src="{{ url_for('static', filename='js/behavioral_patterns.js') }}"></script>
+<nav class="topnav">
+    <div class="brand">Cards <em>Analysis</em></div>
+    <div class="navlinks" id="navLinks"></div>
+</nav>
+
+<div class="page" id="mainViews"></div>
+{% endblock %}
+
+{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="{{ url_for('static', filename='js/behavioral_patterns_v7.js') }}"></script>
 {% endblock %}

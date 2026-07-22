@@ -1,0 +1,44 @@
+/* ============ DARK MODE — CSS variable overrides cascade to all components ============ */
+
+[data-theme='dark'] {
+  --ink:#1e293b; --ink2:#1e293b; --ink3:#334155;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.04);
+  --paper:#0f172a; --paper2:#1e293b;
+  --tx:#f1f5f9; --tx-muted:#94a3b8; --tx-dim:#64748b;
+  --gold:#22c55e; --gold-bright:#4ade80; --gold-dim:#15803d;
+  --crimson:#ef4444; --crimson-bright:#f87171;
+  --brand:#818cf8; --brand-dark:#6366f1; --amber:#fbbf24; --amber-dark:#d97706;
+  --k:#4ade80; --q:#60a5fa; --j:#a78bfa; --b:#94a3b8;
+}
+
+[data-theme='dark'] .board-svg { background: #1e293b; }
+[data-theme='dark'] .board-svg rect.cell { stroke: #475569; }
+[data-theme='dark'] .board-svg text.axislabel { fill: #64748b; }
+[data-theme='dark'] .board-svg text.cardlet { fill: #f1f5f9; }
+[data-theme='dark'] .exp-board-box { background: #1e293b; }
+[data-theme='dark'] .exp-empty { color: #64748b; }
+[data-theme='dark'] .cmp-board { background: #1e293b; }
+[data-theme='dark'] .thumb { background: #1e293b; }
+[data-theme='dark'] .spark-cell { background: #1e293b; border-color: #334155; }
+[data-theme='dark'] select.sel { background: #334155; border-color: #475569; color: #f1f5f9; }
+[data-theme='dark'] .btn { background: #334155; border-color: #475569; color: #94a3b8; }
+[data-theme='dark'] .btn.primary { background: #818cf8; border-color: #818cf8; color: #fff; }
+[data-theme='dark'] .btn.primary:hover { background: #6366f1; }
+[data-theme='dark'] .anim-btn { background: #334155; border-color: #475569; color: #f1f5f9; }
+[data-theme='dark'] .anim-btn.play { background: #818cf8; border-color: #818cf8; color: #fff; }
+[data-theme='dark'] .anim-log { background: #334155; border-left-color: #4ade80; color: #f1f5f9; }
+[data-theme='dark'] .callout { background: #1e293b; border-left-color: #4ade80; color: #e2e8f0; }
+[data-theme='dark'] .callout.warn { border-left-color: #f87171; }
+[data-theme='dark'] .callout b { color: #f1f5f9; }
+[data-theme='dark'] .methodology { background: #1e293b; border-color: #334155; }
+[data-theme='dark'] .methodology summary { color: #94a3b8; }
+[data-theme='dark'] .specimen { background: #1e293b; border-color: #334155; }
+[data-theme='dark'] .quickstart { background: #1e293b; border-color: #334155; }
+[data-theme='dark'] footer.foot { border-top-color: #334155; color: #64748b; }
+[data-theme='dark'] .plist-pill.active { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+[data-theme='dark'] .plist-pill:hover { background: rgba(255,255,255,.08); }
+[data-theme='dark'] .upload-status.ok { background: rgba(74,222,128,.1); color: #4ade80; border-color: #15803d; }
+[data-theme='dark'] .upload-status.err { background: rgba(248,113,113,.1); color: #f87171; border-color: #dc2626; }
+[data-theme='dark'] .upload-status.active-note { background: rgba(129,140,248,.1); color: #818cf8; border-color: #6366f1; }
+[data-theme='dark'] .cardback-icon rect { fill: #334155; stroke: #475569; }
+[data-theme='dark'] .cardback-icon text { fill: #94a3b8; }
