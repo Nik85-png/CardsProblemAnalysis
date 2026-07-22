@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Power BI Setup{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>Power BI Setup</h1>
+        <p>Connect this app to a Power BI push dataset so the dashboard reflects your uploaded data.</p>
+    </div>
+
+    <div class="powerbi-setup">
+        <div class="powerbi-setup__section">
+            <h2>1. Azure AD app registration</h2>
+            <p>Create an App Registration in Azure Active Directory:</p>
+            <ul>
+                <li>Go to <strong>Azure portal &gt; App registrations &gt; New registration</strong>.</li>
+                <li>Name it <em>CardsProblemAnalysis-PowerBI</em> and select <em>Accounts in this organizational directory only</em>.</li>
+                <li>Go to <strong>Certificates &amp; secrets</strong> and create a new client secret. Copy the secret value.</li>
+                <li>Go to <strong>Overview</strong> and note the <em>Application (client) ID</em> and the <em>Directory (tenant) ID</em>.</li>
+            </ul>
+        </div>
+
+        <div class="powerbi-setup__section">
+            <h2>2. Enable Power BI service principal access</h2>
+            <p>A Power BI admin must enable service-principal access:</p>
+            <ul>
+                <li>Open the <a href="https://app.powerbi.com/admin-portal" target="_blank" rel="noopener">Power BI admin portal</a>.</li>
+                <li>Go to <strong>Tenant settings</strong> and enable <em>Allow service principals to use Power BI APIs</em>.</li>
+            </ul>
+        </div>
+
+        <div class="powerbi-setup__section">
+            <h2>3. Create a Power BI workspace</h2>
+            <ul>
+                <li>Create a workspace or open an existing one.</li>
+                <li>Add the Azure AD app as a <strong>Contributor</strong> or <strong>Admin</strong> of the workspace.</li>
+                <li>Copy the workspace ID from the URL or workspace settings.</li>
+            </ul>
+        </div>
+
+        <div class="powerbi-setup__section">
+            <h2>4. Configure the app</h2>
+            <p>Set these environment variables in your <code>.env</code> file or hosting platform:</p>
+            <pre class="powerbi-setup__code">
+POWERBI_TENANT_ID=your-tenant-id
+POWERBI_CLIENT_ID=your-client-id
+POWERBI_CLIENT_SECRET=your-client-secret
+POWERBI_WORKSPACE_ID=your-workspace-id
+POWERBI_TABLE_NAME=CardsDataset
+POWERBI_PUSH_SECRET=choose-a-strong-secret
+            </pre>
+            <p><strong>Optional:</strong> set <code>POWERBI_REPORT_EMBED_URL</code> to the embed URL of a report built on the push dataset. You can find this URL under the report's <em>Share &rarr; Embed</em> settings in Power BI, or by copying the link from the report page. If omitted, the default shipped report is shown.</p>
+        </div>
+
+        <div class="powerbi-setup__section">
+            <h2>5. Create the push dataset</h2>
+            <p>Enter the same push secret from your configuration, then click the button. This reads the current CardsDataset schema and creates a matching push dataset in Power BI.</p>
+            <div class="powerbi-controls__row">
+                <input type="password" id="powerbiPushSecret" class="powerbi-push-secret" placeholder="Push secret" aria-label="Push secret" />
+                <button id="createPowerBIDataset" class="powerbi-push-btn" type="button">
+                    <span class="powerbi-push-btn__label">Create Power BI dataset</span>
+                    <span class="powerbi-push-btn__spinner" aria-hidden="true"></span>
+                </button>
+            </div>
+            <span id="powerbiPushStatus" class="powerbi-push-status" aria-live="polite"></span>
+            <div class="powerbi-setup__note">
+                After the dataset is created, copy the returned <strong>dataset id</strong> and set it as <code>POWERBI_DATASET_ID</code>, then restart the app.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var btn = document.getElementById('createPowerBIDataset');
+    var status = document.getElementById('powerbiPushStatus');
+    var secretInput = document.getElementById('powerbiPushSecret');
+    if (!btn || !status) return;
+
+    function setStatus(kind, text) {
+        status.textContent = text;
+        status.className = 'powerbi-push-status powerbi-push-status--' + kind;
+    }
+
+    btn.addEventListener('click', function() {
+        var secret = secretInput ? secretInput.value.trim() : '';
+        if (!secret) {
+            setStatus('error', 'Enter the push secret first.');
+            return;
+        }
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        setStatus('pending', 'Creating Power BI dataset...');
+
+        fetch('/api/powerbi/create-dataset', {
+            method: 'POST',
+            headers: { 'X-PowerBI-Push-Secret': secret }
+        })
+            .then(function(resp) { return resp.json().then(function(data) { return { resp: resp, data: data }; }); })
+            .then(function(result) {
+                if (result.resp.ok) {
+                    setStatus('ok', result.data.message);
+                } else {
+                    setStatus('error', 'Create failed: ' + (result.data.error || ('HTTP ' + result.resp.status)));
+                }
+            })
+            .catch(function(err) {
+                setStatus('error', 'Network error: ' + err.message);
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.classList.remove('is-loading');
+            });
+    });
+})();
+</script>
+{% endblock %}

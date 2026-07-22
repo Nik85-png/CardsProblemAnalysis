@@ -54,6 +54,10 @@ REQUIRED_COLUMNS = [
 class ProcessingError(Exception):
     """Raised when the uploaded CSV is structurally invalid."""
 
+    def __init__(self, message, details=None):
+        super().__init__(message)
+        self.details = details or {}
+
 
 # ---------------------------------------------------------------------------
 # Card vocabulary — mirrors what app.py / behavioral_app.py render
@@ -474,7 +478,11 @@ def process_csv_to_json(csv_path: str | Path) -> dict:
     missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing:
         raise ProcessingError(
-            "CSV is missing required columns: " + ", ".join(missing)
+            "CSV is missing required columns: " + ", ".join(missing),
+            {
+                "missing_columns": missing,
+                "required_columns": list(REQUIRED_COLUMNS),
+            },
         )
 
     rows = df.to_dict("records")

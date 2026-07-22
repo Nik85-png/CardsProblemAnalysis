@@ -189,7 +189,7 @@ class UploadRevertRoundTripTests(unittest.TestCase):
             data=data, content_type="multipart/form-data",
         )
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("Only .csv files", resp.get_json().get("error", ""))
+        self.assertIn("Only .csv or .xlsx files are accepted.", resp.get_json().get("error", ""))
 
     def test_upload_no_file_returns_400(self):
         """POST without a 'dataset' field returns 400."""

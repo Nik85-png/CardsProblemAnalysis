@@ -7,6 +7,7 @@ Place this file as 'app.py' in your flask_card_analysis folder.
 
 import json
 import os
+import secrets
 import sys
 import hashlib
 import shutil
@@ -22,11 +23,18 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 import pandas as pd
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for server
+
+# Optional: load a local .env file if python-dotenv is installed.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
 app = Flask(__name__)
 
@@ -54,6 +62,16 @@ except Exception as _proc_import_err:  # pragma: no cover
     _CSV_PIPELINE_AVAILABLE = False
     print(f"[upload-dataset] WARNING: process_dataset import failed: {_proc_import_err}")
 
+# Soft import so a missing requests / powerbi_push doesn't block boot.
+try:
+    from powerbi_push import PowerBIPusher, PowerBIPushError
+    _POWERBI_PUSH_AVAILABLE = True
+except Exception as _pbi_import_err:  # pragma: no cover
+    PowerBIPusher = None
+    PowerBIPushError = Exception
+    _POWERBI_PUSH_AVAILABLE = False
+    print(f"[powerbi] WARNING: powerbi_push import failed: {_pbi_import_err}")
+
 
 # Feature flag so deployments can lock the route without removing code.
 def _env_flag(name: str, default: bool) -> bool:
@@ -73,6 +91,10 @@ _DATA_DIR = _BASE_DIR / 'data'
 _CSV_PATH = _DATA_DIR / 'CardsDataset.csv'
 _EXCEL_PATH = _DATA_DIR / 'task1_B_condition_positioned_blank_cards.xlsx'
 _JSON_PATH = _DATA_DIR / 'card_analysis_data.json'
+
+# Persisted Power BI push dataset id; lets users push immediately after
+# creating a dataset without editing env vars and restarting the app.
+_POWERBI_DATASET_FILE = _DATA_DIR / 'powerbi_dataset_id.txt'
 
 # Global variables
 df = None
@@ -1859,7 +1881,158 @@ def api_blank_patterns_doc_summary():
 
 @app.route('/powerbi')
 def powerbi():
-    return render_template('powerbi.html')
+    """Power BI dashboard page with an optional configurable embed URL."""
+    report_url = os.getenv(
+        "POWERBI_REPORT_EMBED_URL",
+        "https://app.powerbi.com/reportEmbed?reportId=9b7602bc-7b39-432f-a0ec-2eac139deec1&autoAuth=true&ctid=3d1cee9c-8bf0-4375-b5b9-5c0315d1187e",
+    )
+    return render_template('powerbi.html', powerbi_report_url=report_url)
+
+
+@app.route('/powerbi-setup')
+def powerbi_setup():
+    """In-app setup guide for connecting to a Power BI push dataset."""
+    return render_template('powerbi_setup.html')
+
+
+def _require_powerbi_push_secret():
+    """Validate the X-PowerBI-Push-Secret header against the configured secret."""
+    secret = os.getenv("POWERBI_PUSH_SECRET")
+    if not secret:
+        return False, "Push secret is not configured on the server."
+    provided = request.headers.get("X-PowerBI-Push-Secret")
+    if not provided:
+        return False, "Missing X-PowerBI-Push-Secret header."
+    if not secrets.compare_digest(provided, secret):
+        return False, "Invalid push secret."
+    return True, None
+
+
+def _get_powerbi_config(*, require_dataset_id: bool = True) -> tuple[dict, None] | tuple[None, list[str]]:
+    """Read Power BI configuration from environment and persisted files.
+
+    Returns ``(config, None)`` when complete, or ``(None, missing_keys)`` when
+    required values are missing. If ``require_dataset_id`` is False (used by
+    the create route), ``POWERBI_DATASET_ID`` is omitted from the check.
+    """
+    dataset_id = os.getenv("POWERBI_DATASET_ID")
+    if not dataset_id and _POWERBI_DATASET_FILE.exists():
+        dataset_id = _POWERBI_DATASET_FILE.read_text().strip()
+
+    config = {
+        "POWERBI_TENANT_ID": os.getenv("POWERBI_TENANT_ID"),
+        "POWERBI_CLIENT_ID": os.getenv("POWERBI_CLIENT_ID"),
+        "POWERBI_CLIENT_SECRET": os.getenv("POWERBI_CLIENT_SECRET"),
+        "POWERBI_WORKSPACE_ID": os.getenv("POWERBI_WORKSPACE_ID"),
+        "POWERBI_DATASET_ID": dataset_id,
+    }
+    if not require_dataset_id:
+        config.pop("POWERBI_DATASET_ID")
+
+    missing = [k for k, v in config.items() if not v]
+    if missing:
+        return None, missing
+    return config, None
+
+
+@app.route('/api/powerbi/push-dataset', methods=['POST'])
+def push_dataset_to_powerbi():
+    """Push the currently loaded CardsDataset to a Power BI push dataset."""
+    if df is None:
+        return jsonify({"error": "Dataset not loaded"}), 503
+
+    if not _POWERBI_PUSH_AVAILABLE or PowerBIPusher is None:
+        return jsonify({
+            "error": "Power BI push helper is not available. Check that requests is installed."
+        }), 503
+
+    ok, msg = _require_powerbi_push_secret()
+    if not ok:
+        return jsonify({"error": msg}), 401
+
+    config, missing = _get_powerbi_config(require_dataset_id=True)
+    if config is None:
+        return jsonify({
+            "error": "Power BI is not configured on the server.",
+            "missing": missing,
+            "message": "Set the required environment variables in your .env file or hosting platform, or create a push dataset first."
+        }), 500
+
+    try:
+        pusher = PowerBIPusher(
+            tenant_id=config["POWERBI_TENANT_ID"],
+            client_id=config["POWERBI_CLIENT_ID"],
+            client_secret=config["POWERBI_CLIENT_SECRET"],
+            workspace_id=config["POWERBI_WORKSPACE_ID"],
+            dataset_id=config["POWERBI_DATASET_ID"],
+            table_name=os.getenv("POWERBI_TABLE_NAME", "CardsDataset"),
+        )
+        pushed = pusher.push_dataframe(df)
+        return jsonify({
+            "ok": True,
+            "pushed": pushed,
+            "message": f"Pushed {pushed} rows to the Power BI push dataset."
+        }), 200
+    except PowerBIPushError as exc:
+        return jsonify({"error": str(exc)}), 500
+    except Exception as exc:
+        return jsonify({"error": f"Unexpected error: {exc}"}), 500
+
+
+@app.route('/api/powerbi/create-dataset', methods=['POST'])
+def create_powerbi_dataset():
+    """Create a Power BI push dataset from the current CardsDataset schema."""
+    if df is None:
+        return jsonify({"error": "Dataset not loaded"}), 503
+
+    if not _POWERBI_PUSH_AVAILABLE or PowerBIPusher is None:
+        return jsonify({
+            "error": "Power BI push helper is not available. Check that requests is installed."
+        }), 503
+
+    ok, msg = _require_powerbi_push_secret()
+    if not ok:
+        return jsonify({"error": msg}), 401
+
+    config, missing = _get_powerbi_config(require_dataset_id=False)
+    if config is None:
+        return jsonify({
+            "error": "Power BI is not configured on the server.",
+            "missing": missing,
+            "message": "Set the required environment variables in your .env file or hosting platform."
+        }), 500
+
+    try:
+        table_name = os.getenv("POWERBI_TABLE_NAME", "CardsDataset")
+        pusher = PowerBIPusher(
+            tenant_id=config["POWERBI_TENANT_ID"],
+            client_id=config["POWERBI_CLIENT_ID"],
+            client_secret=config["POWERBI_CLIENT_SECRET"],
+            workspace_id=config["POWERBI_WORKSPACE_ID"],
+            table_name=table_name,
+        )
+        dataset_id = pusher.create_dataset(df, dataset_name=table_name)
+        # Persist the new dataset id so push-dataset can use it without a restart.
+        persist_warning = None
+        try:
+            _POWERBI_DATASET_FILE.write_text(dataset_id.strip())
+        except Exception as exc:
+            persist_warning = f"Could not persist dataset id locally: {exc}"
+            print(f"[powerbi] {persist_warning}")
+        return jsonify({
+            "ok": True,
+            "dataset_id": dataset_id,
+            "table_name": table_name,
+            "warning": persist_warning,
+            "message": (
+                f"Created Power BI push dataset '{table_name}' with id {dataset_id}. "
+                "You can now push rows without restarting the app."
+            ),
+        }), 200
+    except PowerBIPushError as exc:
+        return jsonify({"error": str(exc)}), 500
+    except Exception as exc:
+        return jsonify({"error": f"Unexpected error: {exc}"}), 500
 
 ###############################################################################
 ##########Behavioral patterns-Grid Analysis###################################
@@ -1867,11 +2040,24 @@ def powerbi():
 def behavioral_patterns():
     return render_template('behavioral_patterns.html')
 
+@app.route('/api/behavioral-csv')
+def behavioral_csv():
+    """Serve the active CSV dataset for client-side processing by the
+    Behavioral Patterns dashboard.  When the main upload widget replaces
+    CardsDataset.csv on disk this endpoint automatically returns the new file."""
+    if not _CSV_PATH.exists():
+        return jsonify({'error': 'CSV not found'}), 404
+    return send_file(str(_CSV_PATH), mimetype='text/csv')
+
 ###############################################################################
 ########### Behavioural Analysis — 9 statistical perspectives on Cards task #####
 @app.route('/behavioural-analysis')
 def behavioural_analysis():
-    return render_template('behavioural_analysis.html')
+    # Redirect to the Behavioral Patterns dashboard which now includes
+    # all behavioral analysis sections (Learning Curves, Evidence & Validity,
+    # Distributions, Timing & Latency, Spatial Patterns, Individual
+    # Trajectories, Psychology of Failure, Data Scope Notes).
+    return redirect(url_for('behavioral_patterns') + '#behavioral')
 
 
 # ---------------------------------------------------------------------------
@@ -1879,7 +2065,7 @@ def behavioural_analysis():
 # ---------------------------------------------------------------------------
 @app.route('/behavioural-analysis/upload-dataset', methods=['POST'])
 def behavioural_upload_dataset():
-    """Accept a CardsDataset-style CSV and overwrite card_analysis_data.json.
+    """Accept a CardsDataset-style CSV or Excel file and overwrite card_analysis_data.json.
 
     Replaces the static JSON with a freshly-processed version derived from the
     uploaded CSV. The behavioural Blueprint (analysis_types[6]) re-uses these
@@ -1895,12 +2081,12 @@ def behavioural_upload_dataset():
     upload = request.files.get('dataset')
     if upload is None or not upload.filename:
         return jsonify({
-            "error": "No CSV file uploaded. Pick a file via the upload widget (multipart field name 'dataset')."
+            "error": "No dataset file uploaded. Pick a CSV or Excel file via the upload widget (multipart field name 'dataset')."
         }), 400
 
     safe_filename = upload.filename.lower()
-    if not safe_filename.endswith('.csv'):
-        return jsonify({"error": "Only .csv files are accepted."}), 400
+    if not (safe_filename.endswith('.csv') or safe_filename.endswith('.xlsx')):
+        return jsonify({"error": "Only .csv or .xlsx files are accepted."}), 400
 
     # Reject oversized requests before buffering the body.
     max_size = app.config.get('MAX_CONTENT_LENGTH') or 32 * 1024 * 1024
@@ -1914,12 +2100,19 @@ def behavioural_upload_dataset():
         # Sanitise + cap filename so attackers can't pin disk with a 32 MB
         # filename (still in the tempdir, never served).
         original_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(upload.filename).name)[:120]
-        if not original_name.lower().endswith(".csv"):
-            original_name = original_name + ".csv"
         tmp_path = os.path.join(tmp_dir, original_name)
         upload.save(tmp_path)
 
-        payload = process_csv_to_json(tmp_path)
+        # Excel uploads need to be normalised to CSV before the pipeline
+        # can read them, while still validating their original columns.
+        process_path = tmp_path
+        if safe_filename.endswith(('.xlsx', '.xls')):
+            excel_df = pd.read_excel(tmp_path)
+            csv_path = os.path.join(tmp_dir, "converted.csv")
+            excel_df.to_csv(csv_path, index=False)
+            process_path = csv_path
+
+        payload = process_csv_to_json(process_path)
         stats = payload.get("statistics", {}) or {}
         if not stats.get("total_trials"):
             return jsonify({"error": "No valid trials found in the uploaded CSV."}), 400
@@ -1928,8 +2121,9 @@ def behavioural_upload_dataset():
             atomic_write_json(_ANALYSIS_DATA_PATH, payload)
 
             # Only overwrite the canonical CSV AFTER both processing and JSON write
-            # succeed — a bad CSV won't corrupt the running dataset.
-            shutil.copy2(tmp_path, _CSV_PATH)
+            # succeed — a bad CSV won't corrupt the running dataset. Use the path
+            # that was actually processed (the converted CSV for Excel uploads).
+            shutil.copy2(process_path, _CSV_PATH)
 
             # Reload the global df so other tabs pick up the new CSV immediately.
             load_data()
@@ -1951,6 +2145,23 @@ def behavioural_upload_dataset():
                 "analysis_count": len(payload.get("analysis_types", [])),
             })
     except DatasetProcessingError as exc:
+        details = getattr(exc, 'details', {}) or {}
+        missing = details.get('missing_columns')
+        required = details.get('required_columns')
+        if missing and required:
+            return jsonify({
+                "error": "Missing required columns",
+                "missing_columns": missing,
+                "required_columns": required,
+                "message": (
+                    "The uploaded file is missing the following required columns: "
+                    + ", ".join(missing) + "."
+                ),
+                "next_steps": (
+                    "Please add the missing columns listed above to your file and "
+                    "upload it again. Every row must include a value for each required column."
+                ),
+            }), 400
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
         # Surface enough context to debug env-level failures (stale
@@ -2293,7 +2504,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     if df is not None:
-        print("\n🌐 Application running at: http://0.0.0.0:5001")
+        print("\n[SERVER] Application running at: http://0.0.0.0:5001")
         print("\nPress Ctrl+C to stop the server\n")
 
         # Get port from environment (for deployment) or use 5001 for local

@@ -16,7 +16,31 @@
   var nameEl = document.getElementById('datasetUploadFilename');
   var btn = document.getElementById('datasetUploadBtn');
   var status = document.getElementById('datasetUploadStatus');
+  var validationPanel = document.getElementById('datasetUploadValidation');
   if (!input || !btn || !status || !nameEl) { return; }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function hideValidation() {
+    if (validationPanel) {
+      validationPanel.hidden = true;
+      validationPanel.innerHTML = '';
+    }
+  }
+
+  function showValidation(html) {
+    if (validationPanel) {
+      validationPanel.innerHTML = html;
+      validationPanel.hidden = false;
+    }
+  }
 
   var uploadEndpoint = '/behavioural-analysis/upload-dataset';
   var revertEndpoint = '/behavioural-analysis/revert-dataset';
@@ -181,18 +205,20 @@
     var widget = document.getElementById('uploadWidget');
     if (widget) { widget.setAttribute('open', ''); }
     setStatus('idle', '');
+    hideValidation();
   });
 
   /* ---- upload ---- */
 
   btn.addEventListener('click', function () {
+    hideValidation();
     var file = input.files && input.files[0];
     if (!file) {
-      setStatus('error', 'Pick a .csv file first.');
+      setStatus('error', 'Pick a .csv or .xlsx file first.');
       return;
     }
-    if (!/\.csv$/i.test(file.name)) {
-      setStatus('error', 'Only .csv files are accepted.');
+    if (!/\.(csv|xlsx)$/i.test(file.name)) {
+      setStatus('error', 'Only .csv or .xlsx files are accepted.');
       return;
     }
 
@@ -224,7 +250,24 @@
         _prepareReload('uploaded');
         setSkipRevertCookie();
         setTimeout(function () { window.location.reload(); }, 1400);
+      } else if (payload.missing_columns && payload.required_columns) {
+        setStatus('error', 'Upload failed: ' + (payload.error || 'Missing required columns'));
+        var missingList = payload.missing_columns.map(function (col) {
+          return '<li><code>' + escapeHtml(col) + '</code></li>';
+        }).join('');
+        var requiredTags = payload.required_columns.map(function (col) {
+          return '<code>' + escapeHtml(col) + '</code>';
+        }).join(', ');
+        showValidation(
+          '<div class="nav-upload-validation__header">Missing required columns</div>' +
+          '<p>The following columns are missing from your file:</p>' +
+          '<ul class="nav-upload-validation__list">' + missingList + '</ul>' +
+          '<p>Required columns are: ' + requiredTags + '</p>' +
+          '<p class="nav-upload-validation__next">Next step: add the missing columns to your file and upload again. ' +
+          'Every row must include a value for each required column.</p>'
+        );
       } else {
+        hideValidation();
         setStatus('error', 'Upload failed: ' + (payload.error || ('HTTP ' + xhr.status)));
       }
     };

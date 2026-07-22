@@ -3,15 +3,81 @@
 {% block title %}Power BI Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Power BI Dashboard</h1>
-    <p>Power BI Integration - Version 1</p>
-</div>
+<div class="pagebi-page">
+    <div class="page-header">
+        <h1>Power BI Dashboard</h1>
+        <p>Power BI Integration - Version 1</p>
+    </div>
 
-<div style="background: white; padding: 20px; border-radius: 10px;">
-    <iframe title="card project v10" width="100%" height="750"
-        src="https://app.powerbi.com/reportEmbed?reportId=9b7602bc-7b39-432f-a0ec-2eac139deec1&autoAuth=true&ctid=3d1cee9c-8bf0-4375-b5b9-5c0315d1187e"
-        frameborder="0" allowFullScreen="true">
-    </iframe>
+    <div class="powerbi-controls">
+        <div class="powerbi-controls__text">
+            <strong>Live dataset sync</strong>
+            <span>Push the current uploaded dataset to the Power BI push dataset so the report reflects the latest data.</span>
+        </div>
+        <div class="powerbi-controls__row">
+            <input type="password" id="powerbiPushSecret" class="powerbi-push-secret" placeholder="Push secret" aria-label="Push secret" />
+            <button id="pushToPowerBI" class="powerbi-push-btn" type="button">
+                <span class="powerbi-push-btn__label">Push current dataset to Power BI</span>
+                <span class="powerbi-push-btn__spinner" aria-hidden="true"></span>
+            </button>
+            <a class="powerbi-setup-link" href="{{ url_for('powerbi_setup') }}">Setup guide</a>
+        </div>
+        <span id="powerbiPushStatus" class="powerbi-push-status" aria-live="polite"></span>
+    </div>
+
+    <div class="powerbi-iframe-wrap">
+        <iframe title="card project v10" width="100%" height="750"
+            src="{{ powerbi_report_url }}"
+            frameborder="0" allowFullScreen="true">
+        </iframe>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var btn = document.getElementById('pushToPowerBI');
+    var status = document.getElementById('powerbiPushStatus');
+    if (!btn || !status) return;
+
+    function setStatus(kind, text) {
+        status.textContent = text;
+        status.className = 'powerbi-push-status powerbi-push-status--' + kind;
+    }
+
+    var secretInput = document.getElementById('powerbiPushSecret');
+
+    btn.addEventListener('click', function() {
+        var secret = secretInput ? secretInput.value.trim() : '';
+        if (!secret) {
+            setStatus('error', 'Enter the push secret first.');
+            return;
+        }
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        setStatus('pending', 'Pushing dataset to Power BI...');
+
+        fetch('/api/powerbi/push-dataset', {
+            method: 'POST',
+            headers: { 'X-PowerBI-Push-Secret': secret }
+        })
+            .then(function(resp) { return resp.json().then(function(data) { return { resp: resp, data: data }; }); })
+            .then(function(result) {
+                if (result.resp.ok) {
+                    setStatus('ok', result.data.message + ' Refresh the report to see updates.');
+                } else {
+                    setStatus('error', 'Push failed: ' + (result.data.error || ('HTTP ' + result.resp.status)));
+                }
+            })
+            .catch(function(err) {
+                setStatus('error', 'Network error: ' + err.message);
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.classList.remove('is-loading');
+            });
+    });
+})();
+</script>
 {% endblock %}

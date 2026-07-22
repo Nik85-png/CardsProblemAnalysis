@@ -128,16 +128,16 @@
                             </div>
                             <div class="nav-upload-divider"></div>
                             <p class="nav-upload-intro">
-                                Upload a <code>CardsDataset.csv</code>-style file to reprocess all
-                                analyses. Required columns: <code>participant</code>,
-                                <code>trialN</code>, <code>condition</code>,
+                                Upload a <code>CardsDataset.csv</code>-style file (or an Excel file
+                                with the same columns) to reprocess all analyses. Required columns:
+                                <code>participant</code>, <code>trialN</code>, <code>condition</code>,
                                 <code>overall_correct</code>, <code>movement_codes</code>,
                                 <code>final_card_position_codes_1</code>.
                             </p>
                             <div class="nav-upload-row">
                                 <label class="nav-upload-file-label" for="datasetUploadInput">
-                                    <input type="file" id="datasetUploadInput" accept=".csv" hidden />
-                                    <span class="nav-upload-file-label__browse">📁 Choose CSV</span>
+                                    <input type="file" id="datasetUploadInput" accept=".csv,.xlsx" hidden />
+                                    <span class="nav-upload-file-label__browse">📁 Choose CSV / Excel</span>
                                     <span id="datasetUploadFilename" class="nav-upload-file-label__name">No file chosen</span>
                                 </label>
                                 <button id="datasetUploadBtn" type="button" class="nav-upload-btn">
@@ -146,6 +146,7 @@
                                 </button>
                             </div>
                             <p id="datasetUploadStatus" class="nav-upload-status" data-kind="idle"></p>
+                            <div id="datasetUploadValidation" class="nav-upload-validation" hidden></div>
                             <div class="nav-upload-actions">
                                 <button id="datasetRevertBtn" type="button" class="nav-upload-btn nav-upload-btn--revert">
                                     <span class="nav-upload-btn__label">↩ Revert to Original</span>
@@ -163,6 +164,33 @@
             </ul>
         </div>
     </nav>
+
+    {# ---- Secondary navigation strip (hidden on homepage) ---- #}
+    {% if request.endpoint and request.endpoint != 'index' %}
+    <nav class="sub-nav" aria-label="Page navigation">
+        <div class="container sub-nav__inner">
+            <div class="sub-nav__crumbs">
+                <a href="{{ url_for('index') }}" class="sub-nav__crumb">Home</a>
+                <span class="sub-nav__sep" aria-hidden="true">/</span>
+                {% if request.endpoint in insights_endpoints %}
+                <span class="sub-nav__crumb sub-nav__crumb--current">Insights</span>
+                {% elif request.endpoint in research_endpoints %}
+                <span class="sub-nav__crumb sub-nav__crumb--current">Research</span>
+                {% elif request.endpoint == 'powerbi' %}
+                <span class="sub-nav__crumb sub-nav__crumb--current">Power BI</span>
+                {% endif %}
+            </div>
+            <div class="sub-nav__links">
+                {% if request.endpoint != 'explorer' %}<a href="{{ url_for('explorer') }}" class="sub-nav__link">Explorer</a>{% endif %}
+                {% if request.endpoint != 'patterns' %}<a href="{{ url_for('patterns') }}" class="sub-nav__link">Solutions</a>{% endif %}
+                {% if request.endpoint != 'blank_patterns_page' %}<a href="{{ url_for('blank_patterns_page') }}" class="sub-nav__link">Hints</a>{% endif %}
+                {% if request.endpoint != 'blank_card_paradox' %}<a href="{{ url_for('blank_card_paradox') }}" class="sub-nav__link">Paradox</a>{% endif %}
+                {% if request.endpoint != 'behavioural_analysis' %}<a href="{{ url_for('behavioural_analysis') }}" class="sub-nav__link">Analysis</a>{% endif %}
+                {% if request.endpoint != 'behavioral_patterns' %}<a href="{{ url_for('behavioral_patterns') }}" class="sub-nav__link">Behaviour</a>{% endif %}
+            </div>
+        </div>
+    </nav>
+    {% endif %}
 
     <main class="container">
         {% block content %}{% endblock %}
