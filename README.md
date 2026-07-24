@@ -181,7 +181,7 @@ CardsProblemAnalysis/
 | GET | `/behavioral-play` | Behavioral play page |
 | GET | `/api/get-trials/<participant>` | Get all trials for a participant |
 | GET | `/api/trial-info/<participant>/<trial>` | Detailed trial information |
-| GET | `/api/generate-animation/<participant>/<trial>` | Animation frames |
+| GET | `/api/animation-info/<participant>/<trial>` | Animation metadata (total frames, trial info) |
 | GET | `/api/animation-frame/<p>/<t>/<frame>` | Single animation frame (PNG) |
 | GET | `/api/trial-grid/<participant>/<trial>` | Grid data as JSON for HTML rendering |
 | GET | `/api/trial-image/<participant>/<trial>` | Static final-state image |
