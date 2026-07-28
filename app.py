@@ -20,8 +20,6 @@ from collections import Counter
 import io
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.animation import FuncAnimation
-import matplotlib.pyplot as plt
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 import pandas as pd
 import numpy as np
