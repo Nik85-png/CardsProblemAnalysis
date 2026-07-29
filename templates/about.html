@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}About Us - Cards Problem Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+    .about-hero {
+        text-align: center;
+        max-width: 640px;
+        margin: 0 auto 2.5rem;
+    }
+    .about-hero__eyebrow {
+        display: inline-block;
+        font-family: var(--app-font-heading);
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--app-text-tertiary);
+        margin-bottom: 0.75rem;
+    }
+    .about-hero h1 {
+        font-family: var(--app-font-heading);
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-weight: 700;
+        color: var(--app-text-primary);
+        margin: 0 0 0.9rem;
+    }
+    .about-hero p {
+        font-size: 1.02rem;
+        line-height: 1.65;
+        color: var(--app-text-secondary);
+        margin: 0;
+    }
+
+    /* Ornamented section divider (adapted from the reference design) */
+    .team-divider {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        max-width: 760px;
+        margin: 2.75rem auto 2rem;
+    }
+    .team-divider::before,
+    .team-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--app-border-strong);
+    }
+    .team-divider h2 {
+        font-family: var(--app-font-heading);
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--app-text-primary);
+        white-space: nowrap;
+        margin: 0;
+        position: relative;
+    }
+
+    .team-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+
+    .team-card {
+        background: var(--app-surface);
+        border: 1px solid var(--app-border-default);
+        border-radius: 16px;
+        box-shadow: var(--app-shadow-sm);
+        padding: 1.5rem 1.25rem;
+        width: 220px;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .team-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--app-shadow-lg);
+    }
+
+    .team-card__photo {
+        width: var(--photo-size, 128px);
+        height: var(--photo-size, 128px);
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px solid var(--app-border-default);
+        background: var(--app-bg);
+    }
+    .team-card__photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .team-card__name {
+        font-family: var(--app-font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--app-text-primary);
+        margin: 0 0 0.3rem;
+        line-height: 1.3;
+    }
+    .team-card__role {
+        font-size: 0.85rem;
+        color: var(--app-text-secondary);
+        margin: 0 0 0.2rem;
+        line-height: 1.4;
+    }
+    .team-card__org {
+        font-size: 0.78rem;
+        color: var(--app-text-tertiary);
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Psychology cards get slightly larger photos, matching the reference */
+    .team-grid--lead .team-card { width: 240px; }
+    .team-grid--lead { --photo-size: 144px; }
+
+    @media (max-width: 520px) {
+        .team-card,
+        .team-grid--lead .team-card { width: 100%; max-width: 300px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="about-hero">
+    <span class="about-hero__eyebrow">The Team</span>
+    <h1>About Us</h1>
+    <p>{{ intro }}</p>
+</section>
+
+<div class="team-divider"><h2>Psychology Team</h2></div>
+<div class="team-grid team-grid--lead">
+    {% for m in psychology_team %}
+    <article class="team-card">
+        <div class="team-card__photo">
+            <img src="{{ url_for('static', filename='img/team/' ~ m.photo ~ '.jpg') }}"
+                 alt="Portrait of {{ m.name }}" loading="lazy" width="144" height="144">
+        </div>
+        <p class="team-card__name">{{ m.name }}</p>
+        <p class="team-card__role">{{ m.role }}</p>
+        <p class="team-card__org">{{ m.org }}</p>
+    </article>
+    {% endfor %}
+</div>
+
+<div class="team-divider"><h2>SCDM Team</h2></div>
+<div class="team-grid">
+    {% for m in scdm_team %}
+    <article class="team-card">
+        <div class="team-card__photo">
+            <img src="{{ url_for('static', filename='img/team/' ~ m.photo ~ '.jpg') }}"
+                 alt="Portrait of {{ m.name }}" loading="lazy" width="128" height="128">
+        </div>
+        <p class="team-card__name">{{ m.name }}</p>
+        <p class="team-card__role">{{ m.role }}</p>
+        <p class="team-card__org">{{ m.org }}</p>
+    </article>
+    {% endfor %}
+</div>
+{% endblock %}

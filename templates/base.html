@@ -110,6 +110,9 @@
                 <li><a href="{{ url_for('powerbi') }}" {% if request.endpoint=='powerbi' %}class="active" {% endif
                         %}>Power BI</a></li>
 
+                <li><a href="{{ url_for('about') }}" {% if request.endpoint=='about' %}class="active" {% endif
+                        %}>About Us</a></li>
+
                 {# ---- Theme toggle (dark/light) ---- #}
                 <li class="nav-menu__theme">
                     <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">☀️</button>
@@ -180,6 +183,8 @@
                 <span class="sub-nav__crumb sub-nav__crumb--current">Research</span>
                 {% elif request.endpoint == 'powerbi' %}
                 <span class="sub-nav__crumb sub-nav__crumb--current">Power BI</span>
+                {% elif request.endpoint == 'about' %}
+                <span class="sub-nav__crumb sub-nav__crumb--current">About Us</span>
                 {% endif %}
             </div>
             <div class="sub-nav__links">
