@@ -1689,6 +1689,51 @@ def powerbi():
     return render_template('powerbi.html')
 
 
+# Team roster for the About Us page. Photos live in static/img/team/<photo>.jpg
+# (optimised from the originals). Grouped by affiliation per the project's
+# "About our teams" brief.
+ABOUT_INTRO = (
+    "We are a multidisciplinary group of researchers and academics working "
+    "across psychology, data science, and data analytics, focused on advancing "
+    "research and innovation."
+)
+
+PSYCHOLOGY_TEAM = [
+    {"name": "Dr. Wendy Ross", "role": "Senior Lecturer in Psychology",
+     "org": "London Metropolitan University", "photo": "wendy"},
+    {"name": "Thomas Ormerod", "role": "Professor of Psychology",
+     "org": "University of Sussex", "photo": "tom"},
+]
+
+SCDM_TEAM = [
+    {"name": "Dr. Subeksha Shrestha", "role": "Course Leader & Lecturer, MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "subeksha"},
+    {"name": "Sushan Sunuwar", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "sushan"},
+    {"name": "Athapaththulage Lahiru Ruchira Samarajeewa", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "lahiru"},
+    {"name": "Nikunjkumar Manubhai Prajapati", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "nikunj"},
+    {"name": "Shana Precilla Iruthayaraj", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "shana"},
+    {"name": "Bodiya Baduge Shavini Nadeesha Fernando", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "shavini"},
+    {"name": "Mahesh Kohar Prajapati", "role": "MSc Data Analytics",
+     "org": "London Metropolitan University", "photo": "mahesh"},
+]
+
+
+@app.route('/about')
+def about():
+    """About Us — project contributors."""
+    return render_template(
+        'about.html',
+        intro=ABOUT_INTRO,
+        psychology_team=PSYCHOLOGY_TEAM,
+        scdm_team=SCDM_TEAM,
+    )
+
+
 ###############################################################################
 ##########Behavioral patterns-Grid Analysis###################################
 @app.route('/behavioral_patterns')
